@@ -100,6 +100,10 @@ def create_app(runner=None, evidence_root=None):
     def result(run_id):
         return jsonify(service.store.get(run_id))
 
+    @app.get("/api/runs/<run_id>/integrity")
+    def integrity(run_id):
+        return jsonify(service.store.integrity(run_id))
+
     @app.get("/api/runs/<run_id>/preview/<branch>")
     def preview(run_id, branch):
         response = Response(service.store.preview(run_id, branch), content_type="text/html; charset=utf-8")

@@ -149,3 +149,19 @@ backend, chưa phải dashboard UI. Chạy một server, không đổi mode bằ
 
 Xem [API_STAGE.md](docs/API_STAGE.md) để có ví dụ PowerShell, hợp đồng JSON,
 cơ chế khóa, ý nghĩa bằng chứng và kết quả kiểm thử thực tế.
+
+## Evidence và nghiệm thu backend
+
+Nhánh evidence-tests bổ sung proof tự lưu theo run_id, SHA-256 manifest, audit
+offline và ma trận nghiệm thu T01–T08/E01–E09. UI/UX đang để lại cho lượt sau.
+
+```powershell
+# Dừng dashboard local, giữ Docker lab đang chạy:
+.\verify.ps1 -Faults
+python tools/audit_evidence.py evidence/runs/<run_id>
+```
+
+Thay <run_id> bằng ID thật. -Faults chỉ pause/stop một số dịch vụ của lab Docker
+local rồi khôi phục; không gọi VPS. Báo cáo Markdown/JSON được ghi trong
+evidence/runs/acceptance-*. Không có -Faults sẽ báo PARTIAL vì bỏ qua ca lỗi live.
+Xem [EVIDENCE_STAGE.md](docs/EVIDENCE_STAGE.md) để đọc phạm vi, giới hạn và kết quả.

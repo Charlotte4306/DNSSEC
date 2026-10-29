@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import bleach
 from dashboard.services.docker_runner import APIError
+from dashboard.services.evidence_integrity import write_manifest, verify_manifest
 
 RUN_ID = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 
@@ -67,7 +68,10 @@ class EvidenceStore:
     def path(self, run_id):
         if not isinstance(run_id, str) or not RUN_ID.fullmatch(run_id):
             raise APIError("INVALID_RUN_ID", "run_id không hợp lệ.", 400)
-        return self.directory / run_id
+        folder = self.directory / run_id
+        if folder.is_symlink():
+            raise APIError("INVALID_RUN_PATH", "Không nhận thư mục run là symlink.", 400)
+        return folder
 
     def save(self, run_id, result, worker, logs, context):
         folder = self.path(run_id)
@@ -80,16 +84,34 @@ class EvidenceStore:
             if data["status"] == 200 and data["body"] is not None:
                 preview = sanitize_preview(data["body"], data["site_id"])
                 (folder / f"preview-{branch}.html").write_text(preview, encoding="utf-8")
+        proof = result.get("evidence", {}).get("proof")
+        if proof is not None:
+            (folder / "proof.json").write_text(json.dumps(proof, ensure_ascii=False, indent=2), encoding="utf-8")
+        result.setdefault("evidence", {})["integrity_url"] = f"/api/runs/{run_id}/integrity"
         # Publish result last: incomplete directories never look like completed runs.
         temp = folder / "result.tmp"
         temp.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_manifest(folder, run_id)
         temp.replace(folder / "result.json")
 
+    def integrity(self, run_id):
+        folder = self.path(run_id)
+        if (folder / "result.json").is_symlink():
+            return {"run_id":run_id,"verified":False,"status":"invalid_manifest","files":[],"error":"Result cannot be a symlink"}
+        if not (folder / "result.json").exists():
+            raise APIError("RUN_NOT_FOUND", "Không tìm thấy lần chạy đã hoàn thành.", 404)
+        return verify_manifest(folder, run_id)
+
     def get(self, run_id):
+        integrity = self.integrity(run_id)
+        if integrity["status"] not in {"verified", "unavailable"}:
+            raise APIError("EVIDENCE_CORRUPT", "Tệp evidence đã thay đổi hoặc không còn đầy đủ.", 409, integrity)
         try:
             return json.loads((self.path(run_id) / "result.json").read_text(encoding="utf-8"))
         except FileNotFoundError as exc:
             raise APIError("RUN_NOT_FOUND", "Không tìm thấy lần chạy đã hoàn thành.", 404) from exc
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise APIError("EVIDENCE_CORRUPT", "JSON evidence không còn đọc được.", 409) from exc
 
     def preview(self, run_id, branch):
         if branch not in {"plain", "secure"}:
