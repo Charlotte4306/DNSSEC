@@ -671,3 +671,13 @@ footer>p {
     text-align:left
   }
 }
+
+/* Live measurements share the existing visual layout. */
+.timing {font-size:11px;color:var(--muted);margin:-4px 0 8px}
+.preview-loading {font-size:13px;padding:12px;color:var(--muted)}
+iframe {height:112px}
+.evidence-actions {flex-wrap:wrap}
+#proof-result h3 {font-size:15px;margin-top:14px}
+.source-badge {text-align:right}
+@media(min-width:1200px) and (max-height:800px) {.topology svg {height:96px}}
+@media(max-width:600px) {.result-heading span {overflow-wrap:anywhere}.source-badge {text-align:left}.timing {line-height:1.5}}

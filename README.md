@@ -8,7 +8,8 @@ và [Git workflow](docs/GITFLOW.md).
 Đã có hai website, BIND ký zone, relay sửa phản hồi và hai Unbound có/không
 xác thực DNSSEC. Feature dns-core kiểm chứng đủ baseline → attack → recovery.
 Đã có worker hỏi từng resolver rồi truy cập HTTP theo đúng IP nhận được.
-Đã có dashboard layout dùng dữ liệu minh họa, chưa nối API/lab thật.
+Đã có Flask API điều khiển lab thật, lưu evidence và phục vụ preview đã làm sạch.
+Dashboard đã nối API thật: hai panel DNS/HTTP, preview từ worker và bằng chứng cùng run_id.
 Chế độ kiểm tra trực tiếp authority vẫn giữ cho chẩn đoán.
 
 | Dịch vụ | IP lab | Cổng xem trên host | Site ID |
@@ -124,15 +125,38 @@ IP DNS, IP kết nối, status và nội dung HTTP; đối chiếu access log th
 25 test và ba kịch bản worker thực tế đã đạt.
 Xem [WORKER_STAGE.md](docs/WORKER_STAGE.md) để đọc schema, CLI và giới hạn đồng bộ.
 
-## Xem dashboard layout (dữ liệu minh họa)
+## Backend API trên host
 
-Từ thư mục gốc repo, chạy Python trên host:
+Lab Docker cần đang chạy. Từ thư mục gốc repo:
 
 ```powershell
-python -m http.server 8080 --bind 127.0.0.1 --directory dashboard
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r dashboard/requirements.txt
+.\.venv\Scripts\python.exe dashboard/app.py --port 18766
 ```
 
-Mở http://127.0.0.1:8080/templates/index.html. Thử Bình thường → Can thiệp →
-Khôi phục; xem hai panel, trạng thái chờ/lỗi và JSON minh họa. Giao diện chưa
-truy vấn DNS/HTTP, chưa điều khiển Docker và chưa có Flask backend.
-Xem [hướng dẫn layout](docs/DASHBOARD_LAYOUT.md) để hiểu cấu trúc và cách review.
+Dùng lại `.venv` nếu đã có. Mặc định app dùng cổng 8080; ví dụ chọn 18766 để
+tránh cổng bị chặn/bận trên máy hiện tại. API tại http://127.0.0.1:18766;
+GET `/api/health` và `/api/state`, POST JSON `/api/scenario`, `/api/run`, `/api/proof`.
+Chọn scenario qua API trước khi run để chuẩn bị mode và flush cache. Mở URL gốc để xem dashboard; API và UI dùng cùng origin. Chạy một server, không đổi mode bằng CLI đồng thời.
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/dashboard -p test_api.py -v
+# Dừng API server trước khi chạy test Docker thật sau:
+.\.venv\Scripts\python.exe tests/dashboard/integration_api.py
+```
+
+Xem [API_STAGE.md](docs/API_STAGE.md) để có ví dụ PowerShell, hợp đồng JSON,
+cơ chế khóa, ý nghĩa bằng chứng và kết quả kiểm thử thực tế.
+
+## Dashboard live
+
+```powershell
+.\.venv\Scripts\python.exe dashboard/app.py --port 18766
+```
+
+Mở http://127.0.0.1:18766/ sau khi lab Docker sẵn sàng. Chọn Bình thường,
+Can thiệp hoặc Khôi phục rồi bấm **Truy vấn và truy cập**. Nút chọn chỉ chọn
+kịch bản; nút chạy mới đổi relay, flush cache và thực hiện phép đo.
+Không chạy dashboard bằng `python -m http.server`: bản live cần Flask/API.
+Không nạp dữ liệu mock khi API lỗi. Xem [hướng dẫn dashboard](docs/DASHBOARD_LAYOUT.md).

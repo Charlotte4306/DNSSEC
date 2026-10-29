@@ -1,90 +1,103 @@
-# Dashboard layout — bản minh họa để review
+# Dashboard live — bố cục và tích hợp API trên cùng nhánh
 
-Phạm vi `feature/dashboard-layout`: HTML/CSS/JavaScript và sơ đồ SVG, chưa có Flask,
-API, điều khiển Docker hoặc truy vấn mạng lab. Nhãn nguồn dữ liệu luôn hiện trên
-đầu trang. Đây chưa phải sản phẩm nghiệm thu thực nghiệm DNSSEC.
+`feature/dashboard-layout` bao gồm cả giao diện và nối API theo GitFlow đã thống
+nhất. Flask phục vụ trang HTML, static asset và API cùng origin. Dữ liệu màn hình
+đến từ worker DNS→HTTP thật trong Docker; không còn nạp mock-data.js, không có
+fallback sang fixture khi API lỗi. Animation vẫn chỉ là minh họa luồng xử lý.
 
-## Chạy trên máy
+## Chạy và demo
 
-Từ thư mục gốc repo, dùng Python đã cài trên host:
+Từ thư mục gốc repo, Docker Desktop chạy Linux containers:
 
 ```powershell
-python -m http.server 8080 --bind 127.0.0.1 --directory dashboard
+docker compose up -d --build
+# Nếu đã có .venv, dùng lại và bỏ qua lệnh tạo môi trường:
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r dashboard/requirements.txt
+.\.venv\Scripts\python.exe dashboard/app.py --port 18766
 ```
 
-Mở http://127.0.0.1:8080/templates/index.html. Dừng bằng Ctrl+C trong terminal.
-Không cần Docker, npm, tải font hay CDN. Không mở trực tiếp HTML bằng file://.
-Nếu cổng 8080 bận, chọn cổng khác trong lệnh và URL. Đây là server xem file tĩnh;
-không gọi lệnh `python dashboard/app.py` vì backend chưa được triển khai.
+Mở http://127.0.0.1:18766/. Không dùng static server `python -m http.server`;
+UI live cần Flask/API. Cổng mặc định app là 8080; ví dụ chọn 18766 để tránh cổng
+bị chặn/bận trên máy hiện tại. Chạy một server, dừng bằng Ctrl+C.
 
-## Ý đồ thiết kế
+1. Chờ badge báo dữ liệu thật và trạng thái relay. Nút **Kiểm tra lab** đọc lại
+   health/state; giao diện cũng tự kiểm tra mỗi năm giây khi tab đang hiển thị.
+2. Chọn **Bình thường**, bấm **Truy vấn và truy cập**. UI gọi scenario baseline,
+   flush hai resolver rồi run. Cả hai nhánh nhận `.80`, HTTP 200; secure có AD.
+3. Chọn **Can thiệp**. Kết quả trước bị đánh dấu cũ và preview được gỡ ngay.
+   Việc chọn chưa đổi relay. Bấm chạy mới bật can thiệp, flush và đo lại.
+4. Plain nhận `.90`, kết nối HTTP tới `.90`, site_id training-fake và có access
+   log cùng run_id. Secure SERVFAIL, attempted=false, không có iframe preview.
+5. **Xem vì sao** mở JSON DNS/HTTP và log. **Đối chiếu A và RRSIG** lấy dữ liệu
+   bổ sung thật: authority `.80`, relay `.90`, chữ ký giữ nguyên. Bằng chứng này
+   cùng revision, không tuyên bố thuộc chính gói DNS của phép đo trước.
+6. Chọn **Khôi phục**, bấm chạy. Hai nhánh trở về `.80`, không dùng trang giả cũ.
+   Sao chép/tải JSON nếu cần đối chiếu. Evidence thật đã lưu trong evidence/runs.
 
-- Bảng màu: nền xanh xám `#edf2f8`, bề mặt trắng `#ffffff`, chữ xanh đậm
-  `#18334e`, hành động xanh `#235b9d`, xác thực xanh lá `#176448`, cảnh báo đỏ
-  `#a42c35`. Có nhãn chữ đi kèm màu để phân biệt trạng thái.
-- Segoe UI/Tahoma cho tiếng Việt, Consolas cho địa chỉ và dữ liệu DNS; dùng font
-  hệ thống để trình chiếu offline. Tiêu đề canh trái, số liệu cùng vị trí hai bên.
-- Sơ đồ mạng là điểm nhấn duy nhất. Bỏ hiệu ứng nền và các thẻ số trang trí để
-  người xem tập trung vào resolver và điểm dừng trước HTTP.
-- Bố cục: điều khiển → đường đi DNS → hai panel đối chiếu → bằng chứng mở rộng.
-  Ở 1366×768, nội dung kết quả chính nằm trên màn hình; log mở riêng khi cần.
-  Màn hình hẹp chuyển về một cột; sơ đồ có thể cuộn ngang.
+## Kiến thức trọng tâm của phần nối UI
 
-## Các tệp và kiến thức trọng tâm
+### UI không tự truy cập website theo tên miền
+
+Nút chạy gọi POST `/api/scenario` rồi POST `/api/run`. BIND, relay, Unbound và
+worker vẫn xử lý DNS/HTTP trong Docker. UI dùng schema thật `interpretation`,
+`scenario_revision`, DNS raw và dữ liệu HTTP; không dùng classification từ fixture
+cũ. Chỉ JSON có source live, run_id và hai nhánh khớp được render.
+
+Preview dùng URL `/api/runs/<id>/preview/plain|secure` đúng với run_id/branch,
+kiểm tra HEAD trước khi mở iframe sandbox rỗng. Nội dung là bản HTML worker đã
+tải và backend đã làm sạch, không phải dựng lại một trang mẫu theo site_id.
+Không đặt HTML từ API vào DOM dashboard hay iframe srcdoc. HEAD/GET preview chỉ
+đọc evidence, không tạo request HTTP mới tới web-good/web-fake.
+
+### Kết quả cũ không phải trạng thái hiện tại
+
+UI giữ `generation` cho mỗi kết quả. Khi chọn kịch bản khác hoặc polling thấy
+revision thay đổi, generation tăng, preview cũ được gỡ và các phản hồi preview
+muộn không được chèn lại. JSON cũ vẫn xem/tải được nhưng ghi Lần đo trước.
+Phép đo có consistent=false không hiện preview và yêu cầu chạy lại.
+
+Badge relay lấy actual_mode từ API, không suy từ radio đang chọn. Radio thể
+hiện kịch bản sẽ chạy; relay chỉ thay đổi khi gửi lệnh chạy. Thời gian DNS/HTTP
+hiển thị là elapsed_ms do worker đo, tách khỏi tốc độ nét đứt trên sơ đồ.
+
+### Không coi mất kết nối là đã hủy lab
+
+Không có nút Hủy giả lập của bản mock. Trong lúc chạy, khóa nút thay kịch bản và
+không cho gửi tác vụ xung đột. POST có thời hạn chờ 130 giây; mất kết nối hoặc
+timeout chỉ nói chưa xác nhận được kết quả. Worker có thể vẫn tiếp tục.
+
+UI kiểm tra busy/last_run_id qua state. **Xem lần chạy gần nhất** trong vùng
+bằng chứng mở lại phép đo đã lưu, có nhãn đang xem lại và không gửi truy vấn mới.
+Backend giữ last_run_id riêng, kể cả khi tác vụ mới nhất là proof. Metadata này
+ở RAM: khởi động lại API không tự tìm lần chạy gần nhất trên đĩa, dù các run cũ
+vẫn truy xuất được bằng ID. UI không tự đổi sang một kết quả mẫu khi API hỏng.
+
+## Tệp liên quan
 
 | Tệp | Vai trò |
 |---|---|
-| `dashboard/templates/index.html` | Cấu trúc trang, điều khiển, SVG inline có mô tả cho trình đọc màn hình, hai panel và vùng bằng chứng. |
-| `dashboard/static/css/app.css` | Màu, bố cục, trạng thái, responsive, focus bàn phím và reduced motion. |
-| `dashboard/static/js/mock-data.js` | Tạo fixture có `source: mock`, không thực hiện DNS/HTTP; là schema UI tạm, không tuyên bố trùng toàn bộ JSON worker. |
-| `dashboard/static/js/app.js` | Vòng đời minh họa, render dữ liệu, hủy, đánh dấu cũ, xóa preview, xuất JSON mẫu. |
+| dashboard/app.py | Flask render trang `/`, phục vụ `/static` và API cùng origin. |
+| dashboard/templates/index.html | Điều khiển lab, sơ đồ, hai panel, bằng chứng và xem lại lần đo. |
+| dashboard/static/js/app.js | Gọi API, trạng thái chờ/lỗi, validation/adapter dữ liệu, polling, stale, iframe và export JSON. |
+| dashboard/static/css/app.css | Giữ thiết kế xanh xám, bố cục hai cột, responsive và reduced motion. |
+| dashboard/services/scenario_service.py | Bổ sung last_run_id, không mất ID lần đo khi lấy proof. |
+| dashboard/services/evidence_service.py | CSS preview gọn để đọc nội dung thật trên panel; sanitizer/CSP giữ nguyên chức năng. |
+| tests/check_dashboard_layout.cjs | Thay test mock cũ bằng test trình duyệt → Flask → Docker thật. |
 
-`app.js` tách việc nhận dữ liệu khỏi việc vẽ panel qua `renderBranch`. Nhánh
-dashboard-live sẽ cần adapter dữ liệu worker thật; không chỉ đổi mock thành fetch
-rồi giả định mọi trường đã tương thích. Kết quả secure SERVFAIL không có iframe
-và hiển thị rõ không gửi HTTP. AD=0 ở plain dù website đúng vẫn ghi chưa xác thực.
+Mock fixture cũ đã bỏ. Không có endpoint nhận lệnh Docker hoặc URL tùy ý.
+Scope API, lock và giới hạn tương quan log được giải thích ở [API_STAGE.md](API_STAGE.md).
 
-Preview dùng iframe sandbox rỗng, `srcdoc` chỉ chứa HTML mẫu cố định, không có
-script/form. Không lấy URL trang giả bằng trình duyệt người xem. Khi tích hợp live,
-dùng endpoint preview đã làm sạch từ nội dung worker tải; không gắn HTML API vào
-DOM và không sử dụng iframe mẫu để thay thế kết quả thực.
+## Kiểm tra
 
-Khoảng chờ 900 ms và nét đứt chuyển động chỉ minh họa tiến trình, không phải số
-đo thời gian mạng. `created_at` là lúc tạo fixture. Mã `mock-*` tránh nhầm với run
-thật. Chưa có raw DNS/log/chữ ký giả mang nhãn thực nghiệm; JSON nêu rõ giới hạn.
+API unit test trên host:
 
-## Review bằng tay
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/dashboard -p test_api.py -v
+```
 
-1. Vào trang: chưa có kết quả, hai panel trống và nguồn mock luôn hiện.
-2. Bình thường → Chạy minh họa: hai IP `.80`, HTTP 200; chỉ secure AD=1.
-3. Chọn Can thiệp: kết quả cũ bị làm mờ, iframe cũ được gỡ ngay. Chạy lại:
-   plain `.90`/training-fake, secure SERVFAIL/HTTP không gửi, không có iframe secure.
-4. Xem vì sao → vùng JSON và giải thích mở. JSON có `source: mock`. Thử tải và
-   sao chép; nếu clipboard bị trình duyệt chặn, dùng tải JSON.
-5. Khôi phục → chạy: cả hai trở lại `.80`, không giữ trang giả từ lần trước.
-6. Mở Tình huống để review giao diện: chọn DNS timeout, HTTP lỗi, lab không sẵn
-   sàng; chạy từng ca, kiểm tra không báo tấn công thành công từ lỗi hạ tầng.
-7. Bấm Hủy trong lúc đang chờ: không xuất hiện kết quả muộn, preview cũ bị xóa;
-   điều khiển được bật lại. Khi đang chờ không đổi kịch bản/fixture được.
-8. Kiểm tra ở 1366×768 và 390×844; dùng Tab/Enter, phóng chữ, reduced motion.
-
-Kiểm thử layout không thay thế `worker.ps1 test` hay kiểm thử live. Trong nhánh
-này không thay compose, worker, cấu hình DNS, website đích hoặc API chung.
-
-## Bước tiếp theo theo GitFlow
-
-Commit và PR `feature/dashboard-layout` → `develop` để review. Sau khi merge,
-nhánh `feature/dashboard-api` triển khai Flask, Docker runner và khóa tác vụ;
-`feature/dashboard-live` mới nối UI tới API, bỏ fixture khỏi chế độ live, ghép
-preview/bằng chứng thật. Chưa được mô tả bản layout là đang chặn tấn công thật.
-
-
-## Kiểm tra trình duyệt tự động
-
-`tests/check_dashboard_layout.cjs` tự mở server tĩnh cổng tạm, dùng Edge headless,
-chạy các thao tác rồi đóng server/trình duyệt. Công cụ này chỉ cần khi phát triển;
-xem layout thông thường vẫn chỉ cần Python. Cần Node.js và package Playwright.
-Ví dụ cài công cụ ngoài repo để không thêm node_modules vào dự án:
+Kiểm thử trình duyệt cần Node.js, Playwright và Microsoft Edge. Công cụ nằm
+ngoài repo, không cần cho người chỉ chạy dashboard:
 
 ```powershell
 npm install --prefix "$env:TEMP\dnssec-ui-tools" playwright
@@ -92,14 +105,42 @@ $env:NODE_PATH = "$env:TEMP\dnssec-ui-tools\node_modules"
 node tests/check_dashboard_layout.cjs
 ```
 
-Script mặc định dùng Microsoft Edge trên Windows; đặt `EDGE_PATH` nếu nằm ở nơi
-khác. Ảnh mặc định lưu ở `$env:TEMP\dnssec-layout-review`; có thể đổi bằng biến
-`LAYOUT_ARTIFACTS`. Không lưu ảnh/log runtime vào Git.
+Đóng API server đang chạy trước lệnh test browser. Script tự mở Flask trên cổng
+tạm, dùng .venv, thực hiện baseline/attack/recovery qua các nút UI thật, lấy
+proof, kiểm tra iframe/JSON/access log và tự khôi phục relay/flush khi xong.
+Ảnh lưu ở `$env:TEMP\dnssec-live-review` hoặc biến LAYOUT_ARTIFACTS. Có thể đặt
+LAB_PYTHON và EDGE_PATH khi Python/Edge nằm ở vị trí khác.
 
-Đã chạy thực tế bằng Edge headless: 18 nhóm kiểm tra đạt, không có lỗi JavaScript,
-không có request API hay mạng ngoài. Bao gồm baseline/attack/recovery, DNS/HTTP/
-hạ tầng lỗi, điều khiển khi chờ, hủy không có kết quả muộn, bỏ preview cũ,
-sandbox, JSON mock và tải file, responsive 1366×768/390×844, reduced motion.
-Đã mở ảnh desktop/mobile để review. Hai panel kết quả nằm trong chiều cao 768 px;
-bằng chứng và chú thích có thể cần cuộn. Chưa kiểm tra tích hợp backend, clipboard
-trên mọi trình duyệt hoặc nghiệm thu trình đọc màn hình.
+Chỉ các ca lỗi UI ở phần cuối test mới intercept API có chủ đích: 503, health
+chưa sẵn sàng, API mất kết nối. Chúng kiểm tra hiển thị lỗi, không được dùng làm
+bằng chứng thực nghiệm DNSSEC. Ba kịch bản chính và thử đổi revision từ ngoài
+đều dùng Docker thật. Không dừng Docker thật để mô phỏng lỗi UI.
+
+Các điểm cần nghiệm thu: plain thật đến trang giả khi can thiệp, secure không
+HTTP/preview, proof khớp A/RRSIG, xem lại sau reload, preview cũ bị gỡ khi đổi mode,
+trạng thái lỗi không có fallback, màn hình 1366×768 và 390×844 không tràn ngang.
+
+## Git
+
+Phần API từ develop đã được đưa vào bằng merge --no-commit; không có commit do
+agent tạo. README đã giải quyết xung đột và đánh dấu resolved. Kiểm tra toàn bộ
+diff, stage các tệp cập nhật rồi bạn tự commit để kết thúc merge. PR của nhánh
+dashboard-layout vào develop sẽ gồm phần UI live còn lại; API đã có trên develop.
+
+## Kết quả kiểm tra thực tế
+
+Đã chạy 18 API unit test và 16 nhóm kiểm tra trình duyệt. Ba ca chính đi qua
+UI → Flask → Docker → DNS → HTTP thật, không intercept dữ liệu:
+
+| Kịch bản | Run ID | Access log HTTP |
+|---|---|---|
+| Baseline | 3a43d07f-5d5e-4f8f-a0a4-7fcac1f5848f | 2 request đến trang hợp lệ. |
+| Attack | ec351c74-556d-4155-8cf7-347272b204ba | 1 request plain đến trang giả; secure không HTTP/preview. |
+| Recovery | b0c0287c-33f0-4bbb-bdac-2e305280a5d1 | 2 request trở về trang hợp lệ. |
+
+Đã kiểm tra proof A/RRSIG thật, tải JSON, mở lại sau reload/proof, đổi mode từ
+ngoài để kiểm tra stale, lỗi API không fallback, trạng thái health chưa sẵn sàng,
+API mất kết nối, không có lỗi JavaScript hoặc request mạng ngoài. Hai panel kết
+quả vừa 1366×768; mobile 390×844 không tràn ngang. Đã mở ảnh desktop/mobile để
+review; evidence/log dài cần mở rộng hoặc cuộn. Sau test đã khôi phục mode và
+flush hai resolver. Kiểm thử cuối qua máy chiếu và trình đọc màn hình chưa chạy.

@@ -5,26 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DNSSEC · Phòng thí nghiệm trực quan</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="../static/css/app.css">
-  <script defer src="../static/js/mock-data.js"></script>
-  <script defer src="../static/js/app.js"></script>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script defer src="/static/js/app.js"></script>
 </head>
 <body>
 <main class="workspace">
   <header class="masthead">
     <div class="identity"><span class="brand-mark" aria-hidden="true">D<span>✓</span></span><div><h1>DNSSEC <span>Visual lab</span></h1><p>Cùng một phản hồi DNS. Hai cách xử lý.</p></div></div>
-    <div class="source-badge">Dữ liệu minh họa · chưa kết nối lab</div>
+    <div class="source-badge" id="lab-status" role="status">Đang kiểm tra kết nối lab…</div>
   </header>
 
-  <section class="controls" aria-label="Điều khiển minh họa">
-    <fieldset class="scenario"><legend>Kịch bản minh họa</legend>
+  <section class="controls" aria-label="Điều khiển lab">
+    <fieldset class="scenario"><legend>Kịch bản sẽ chạy</legend>
       <label><input type="radio" name="scenario" value="baseline" checked><span>Bình thường</span></label>
       <label><input type="radio" name="scenario" value="attack"><span>Can thiệp</span></label>
       <label><input type="radio" name="scenario" value="recovery"><span>Khôi phục</span></label>
     </fieldset>
     <div class="target"><span>Tên miền thử nghiệm</span><strong>www.demo.test</strong></div>
-    <button id="run" class="primary">Chạy minh họa</button>
-    <button id="cancel" hidden>Hủy</button>
+    <button id="run" class="primary" disabled>Truy vấn và truy cập</button>
+    <button id="refresh">Kiểm tra lab</button>
   </section>
 
   <section class="topology" aria-labelledby="flow-heading">
@@ -44,18 +43,18 @@
       <g class="node"><rect x="895" y="46" width="248" height="68" rx="10"/><text x="1019" y="75">BIND authoritative · .10</text><text class="node-sub" x="1019" y="97">Zone demo.test đã ký</text></g>
       <text class="path-note" x="840" y="62">DNS</text>
     </svg>
-    <div class="route-summary" id="route-summary">Chọn kịch bản rồi chạy minh họa để xem DNS quyết định bước HTTP.</div>
+    <div class="route-summary" id="route-summary">Chọn kịch bản rồi truy vấn để xem DNS quyết định bước HTTP. Nút chọn chưa đổi relay.</div>
   </section>
 
-  <div class="result-heading"><h2>DNS có dẫn đến đúng website?</h2><span id="run-meta">Chưa có lần chạy minh họa</span></div>
-  <div id="notice" class="notice" role="status" aria-live="polite">Sẵn sàng. Đây là bản xem bố cục, không thực hiện truy vấn DNS hay HTTP.</div>
+  <div class="result-heading"><h2>DNS có dẫn đến đúng website?</h2><span id="run-meta">Chưa có phép đo</span></div>
+  <div id="notice" class="notice" role="status" aria-live="polite">Đang đọc trạng thái API và Docker. Giao diện chỉ hiển thị kết quả đo từ lab.</div>
   <section class="comparison" id="results" aria-label="So sánh hai resolver" aria-busy="false">
     <article class="result-panel" id="plain-panel"><header><div><h3>Không xác thực DNSSEC</h3><p>Unbound plain · 172.30.53.40</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
     <article class="result-panel" id="secure-panel"><header><div><h3>Có xác thực DNSSEC</h3><p>Unbound secure · 172.30.53.30</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
   </section>
 
-  <details class="evidence" id="evidence"><summary>Bằng chứng minh họa <span>JSON và giải thích kết quả</span></summary><div class="evidence-body"><p id="evidence-explanation">Chưa có dữ liệu. Chạy một kịch bản trước.</p><div class="evidence-actions"><button id="copy" disabled>Sao chép JSON</button><button id="download" disabled>Tải JSON minh họa</button><span id="copy-status" role="status"></span></div><pre id="json">{}</pre></div></details>
-  <footer><p>Trust anchor cục bộ cho demo.test · HTTP trong mạng lab · Relay mô phỏng sửa phản hồi, không phải khai thác Kaminsky.</p><details class="review"><summary>Tình huống để review giao diện</summary><label for="fixture">Kết quả minh họa lần chạy tiếp theo</label><select id="fixture"><option value="scenario">Theo kịch bản</option><option value="dns-error">DNS timeout</option><option value="http-error">HTTP không kết nối được</option><option value="infra-error">Lab không sẵn sàng</option></select></details></footer>
+  <details class="evidence" id="evidence"><summary>Bằng chứng lần chạy <span>DNS, HTTP, access log và đối chiếu chữ ký</span></summary><div class="evidence-body"><p id="evidence-explanation">Chưa có dữ liệu. Chạy một kịch bản trước.</p><div class="evidence-actions"><button id="restore" disabled>Xem lần chạy gần nhất</button><button id="proof" disabled>Đối chiếu A và RRSIG</button><button id="copy" disabled>Sao chép JSON</button><button id="download" disabled>Tải JSON kết quả</button><span id="copy-status" role="status"></span></div><pre id="json">{}</pre><div id="proof-result" hidden><h3>Đối chiếu bổ sung từ authority và relay</h3><p id="proof-note"></p><pre id="proof-json"></pre></div></div></details>
+  <footer><p>Trust anchor cục bộ cho demo.test · HTTP trong mạng lab · Relay mô phỏng sửa phản hồi, không phải khai thác Kaminsky.</p><span>Nhịp sơ đồ chỉ để minh họa; thời gian đo lấy từ worker.</span></footer>
 </main>
 </body>
 </html>
