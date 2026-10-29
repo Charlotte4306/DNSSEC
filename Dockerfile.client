@@ -1,0 +1,6 @@
+FROM python:3.14-slim
+WORKDIR /app
+COPY lab/ /app/lab/
+COPY tests/ /app/tests/
+ENV PYTHONUNBUFFERED=1
+CMD ["sleep", "infinity"]
