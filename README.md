@@ -5,8 +5,9 @@ và [Git workflow](docs/GITFLOW.md).
 
 ## Phần hiện đã triển khai
 
-Hai website Docker và client HTTP nội bộ. Chưa triển khai DNS, DNSSEC hoặc dashboard.
-IP được chọn trực tiếp ở bước này; đây chưa phải phép thử điều hướng DNS.
+Hai website Docker, BIND authoritative và client DNS → HTTP nội bộ.
+Chưa triển khai chữ ký DNSSEC hoặc dashboard. visit.py kiểm tra IP trực tiếp;
+browse.py lấy IP từ phản hồi BIND rồi mới truy cập HTTP.
 
 | Dịch vụ | IP lab | Cổng xem trên host | Site ID |
 |---|---|---|---|
@@ -85,3 +86,20 @@ Dừng và gỡ container/network dự án bằng `docker compose down`.
 - Sửa code không thấy thay đổi: build lại image; khởi động lại container đơn thuần không COPY code mới.
 
 Kết quả kiểm thử cụ thể nằm trong [WEB_STAGE.md](docs/WEB_STAGE.md).
+
+## DNS nền đã triển khai
+
+BIND authoritative phục vụ zone demo.test tại 172.30.53.10:53 trong mạng lab.
+www.demo.test và control.demo.test trỏ 172.30.53.80. Chưa ký DNSSEC, chưa có
+Unbound hoặc relay; truy vấn đang hỏi trực tiếp authoritative.
+
+```powershell
+docker compose exec -T client python /app/lab/dns_probe.py
+docker compose exec -T client python /app/lab/dns_probe.py --tcp
+docker compose exec -T client python /app/lab/browse.py --run-id my-dns-check
+docker compose exec -T client python /app/lab/browse.py --name not-present.demo.test
+```
+
+Lệnh cuối dự kiến kết thúc mã 1: NXDOMAIN nên không thực hiện HTTP.
+Bộ test hiện gồm 14 test, chạy bằng lệnh unittest ở trên.
+Xem [DNS_STAGE.md](docs/DNS_STAGE.md) để hiểu cấu hình và các giới hạn.

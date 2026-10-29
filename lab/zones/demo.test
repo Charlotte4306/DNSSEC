@@ -1,0 +1,13 @@
+$ORIGIN demo.test.
+$TTL 15
+@ IN SOA ns.demo.test. admin.demo.test. (
+    2026102901 ; serial
+    60         ; refresh
+    30         ; retry
+    3600       ; expire
+    15         ; negative cache TTL
+)
+@       IN NS ns.demo.test.
+ns      IN A 172.30.53.10
+www     IN A 172.30.53.80
+control IN A 172.30.53.80

@@ -17,8 +17,10 @@ ALLOWED_IPS = {target["ip"] for target in TARGETS.values()}
 MAX_BODY = 1024 * 1024
 
 
-def visit(ip, run_id, branch_id, timeout=3):
+def visit(ip, run_id, branch_id, timeout=3, host=HOST):
     # Reject names and out-of-lab addresses before any network operation.
+    if host not in [HOST, "control.demo.test"]:
+        raise ValueError("HTTP Host must be a permitted lab name")
     address = str(ip_address(ip))
     if address not in ALLOWED_IPS:
         raise ValueError("Destination IP is outside the allowed lab targets")
@@ -27,7 +29,7 @@ def visit(ip, run_id, branch_id, timeout=3):
         "branch_id": branch_id,
         "source": "direct_ip_without_dns",
         "requested_at": datetime.now(timezone.utc).isoformat(),
-        "host_header": HOST,
+        "host_header": host,
         "destination_ip": address,
         "http": {
             "attempted": True,
@@ -45,7 +47,7 @@ def visit(ip, run_id, branch_id, timeout=3):
         connection.connect()
         result["http"]["connected_ip"] = connection.sock.getpeername()[0]
         connection.request("GET", "/", headers={
-            "Host": HOST,
+            "Host": host,
             "X-Lab-Run-ID": run_id,
             "X-Lab-Branch-ID": branch_id,
         })

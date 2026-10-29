@@ -1,6 +1,19 @@
 name: dnssec-visual-lab
 
 services:
+  authority:
+    build:
+      context: .
+      dockerfile: Dockerfile.dns
+    networks:
+      lab:
+        ipv4_address: 172.30.53.10
+    healthcheck:
+      test: ["CMD-SHELL", "dig @127.0.0.1 www.demo.test A +short | grep -Fxq '172.30.53.80'"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   client:
     build:
       context: .
@@ -8,6 +21,8 @@ services:
     networks:
       - lab
     depends_on:
+      authority:
+        condition: service_healthy
       web-good:
         condition: service_healthy
       web-fake:
