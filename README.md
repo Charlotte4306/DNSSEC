@@ -5,9 +5,10 @@ và [Git workflow](docs/GITFLOW.md).
 
 ## Phần hiện đã triển khai
 
-Hai website Docker, BIND authoritative và client DNS → HTTP nội bộ.
-Chưa triển khai chữ ký DNSSEC hoặc dashboard. visit.py kiểm tra IP trực tiếp;
-browse.py lấy IP từ phản hồi BIND rồi mới truy cập HTTP.
+Đã có hai website, BIND ký zone, relay sửa phản hồi và hai Unbound có/không
+xác thực DNSSEC. Feature dns-core kiểm chứng đủ baseline → attack → recovery.
+Chưa có dashboard. Client HTTP hiện hỏi trực tiếp authority; luồng HTTP qua từng
+resolver sẽ được hoàn thiện ở feature dns-http-worker.
 
 | Dịch vụ | IP lab | Cổng xem trên host | Site ID |
 |---|---|---|---|
@@ -87,19 +88,20 @@ Dừng và gỡ container/network dự án bằng `docker compose down`.
 
 Kết quả kiểm thử cụ thể nằm trong [WEB_STAGE.md](docs/WEB_STAGE.md).
 
-## DNS nền đã triển khai
-
-BIND authoritative phục vụ zone demo.test tại 172.30.53.10:53 trong mạng lab.
-www.demo.test và control.demo.test trỏ 172.30.53.80. Chưa ký DNSSEC, chưa có
-Unbound hoặc relay; truy vấn đang hỏi trực tiếp authoritative.
+## DNS core đã hoàn thành
 
 ```powershell
-docker compose exec -T client python /app/lab/dns_probe.py
-docker compose exec -T client python /app/lab/dns_probe.py --tcp
-docker compose exec -T client python /app/lab/browse.py --run-id my-dns-check
-docker compose exec -T client python /app/lab/browse.py --name not-present.demo.test
+docker compose up -d --build
+.\dns.ps1 test
+.\dns.ps1 baseline
+.\dns.ps1 attack
+.\dns.ps1 compare
+.\dns.ps1 proof
+.\dns.ps1 logs
+.\dns.ps1 recover
 ```
 
-Lệnh cuối dự kiến kết thúc mã 1: NXDOMAIN nên không thực hiện HTTP.
-Bộ test hiện gồm 14 test, chạy bằng lệnh unittest ở trên.
-Xem [DNS_STAGE.md](docs/DNS_STAGE.md) để hiểu cấu hình và các giới hạn.
+plain nhận IP .90 khi bị sửa; secure trả SERVFAIL và không IP.
+Sau phục hồi secure trở về .80 với AD=true. Kết quả kiểm thử được lưu ngoài Git.
+Xem [DNS_STAGE.md](docs/DNS_STAGE.md) để đọc code, volume, khóa, thời hạn chữ ký,
+kiểm thử và giới hạn chính xác của feature.
