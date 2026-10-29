@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DNSSEC · Phòng thí nghiệm trực quan</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../static/css/app.css">
+  <script defer src="../static/js/mock-data.js"></script>
+  <script defer src="../static/js/app.js"></script>
+</head>
+<body>
+<main class="workspace">
+  <header class="masthead">
+    <div class="identity"><span class="brand-mark" aria-hidden="true">D<span>✓</span></span><div><h1>DNSSEC <span>Visual lab</span></h1><p>Cùng một phản hồi DNS. Hai cách xử lý.</p></div></div>
+    <div class="source-badge">Dữ liệu minh họa · chưa kết nối lab</div>
+  </header>
+
+  <section class="controls" aria-label="Điều khiển minh họa">
+    <fieldset class="scenario"><legend>Kịch bản minh họa</legend>
+      <label><input type="radio" name="scenario" value="baseline" checked><span>Bình thường</span></label>
+      <label><input type="radio" name="scenario" value="attack"><span>Can thiệp</span></label>
+      <label><input type="radio" name="scenario" value="recovery"><span>Khôi phục</span></label>
+    </fieldset>
+    <div class="target"><span>Tên miền thử nghiệm</span><strong>www.demo.test</strong></div>
+    <button id="run" class="primary">Chạy minh họa</button>
+    <button id="cancel" hidden>Hủy</button>
+  </section>
+
+  <section class="topology" aria-labelledby="flow-heading">
+    <div class="section-line"><h2 id="flow-heading">Đường đi của truy vấn</h2><span>Minh họa luồng xử lý · không phải bắt gói mạng</span></div>
+    <svg viewBox="0 0 1160 160" role="img" aria-labelledby="svg-title svg-desc">
+      <title id="svg-title">Máy khách hỏi DNS qua hai resolver, relay và BIND</title>
+      <desc id="svg-desc">Truy vấn đi từ trái sang phải, phản hồi về theo chiều ngược lại. Sau DNS thành công, máy khách mới gửi HTTP đến IP nhận được.</desc>
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#7990a7"/></marker></defs>
+      <g class="dns-path" fill="none" stroke="#7990a7" stroke-width="2" marker-end="url(#arrow)">
+        <path d="M176 80 H224 V40 H270"/><path d="M224 80 V120 H270"/>
+        <path d="M465 40 H530 V80 H585"/><path d="M465 120 H530 V80"/><path d="M780 80 H895"/>
+      </g>
+      <g class="node"><rect x="12" y="46" width="164" height="68" rx="10"/><text x="94" y="75">Máy khách lab</text><text class="node-sub" x="94" y="97">DNS → HTTP</text></g>
+      <g class="node"><rect x="270" y="10" width="195" height="59" rx="8"/><text x="367" y="35">Resolver plain</text><text class="node-sub" x="367" y="55">Không xác thực · .40</text></g>
+      <g class="node secure-node"><rect x="270" y="91" width="195" height="59" rx="8"/><text x="367" y="116">Resolver secure</text><text class="node-sub" x="367" y="136">Xác thực DNSSEC · .30</text></g>
+      <g class="node" id="relay-node"><rect x="585" y="46" width="195" height="68" rx="10"/><text x="682" y="75">Relay · .20</text><text class="node-sub" id="relay-label" x="682" y="97">Chuyển tiếp phản hồi</text></g>
+      <g class="node"><rect x="895" y="46" width="248" height="68" rx="10"/><text x="1019" y="75">BIND authoritative · .10</text><text class="node-sub" x="1019" y="97">Zone demo.test đã ký</text></g>
+      <text class="path-note" x="840" y="62">DNS</text>
+    </svg>
+    <div class="route-summary" id="route-summary">Chọn kịch bản rồi chạy minh họa để xem DNS quyết định bước HTTP.</div>
+  </section>
+
+  <div class="result-heading"><h2>DNS có dẫn đến đúng website?</h2><span id="run-meta">Chưa có lần chạy minh họa</span></div>
+  <div id="notice" class="notice" role="status" aria-live="polite">Sẵn sàng. Đây là bản xem bố cục, không thực hiện truy vấn DNS hay HTTP.</div>
+  <section class="comparison" id="results" aria-label="So sánh hai resolver" aria-busy="false">
+    <article class="result-panel" id="plain-panel"><header><div><h3>Không xác thực DNSSEC</h3><p>Unbound plain · 172.30.53.40</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
+    <article class="result-panel" id="secure-panel"><header><div><h3>Có xác thực DNSSEC</h3><p>Unbound secure · 172.30.53.30</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
+  </section>
+
+  <details class="evidence" id="evidence"><summary>Bằng chứng minh họa <span>JSON và giải thích kết quả</span></summary><div class="evidence-body"><p id="evidence-explanation">Chưa có dữ liệu. Chạy một kịch bản trước.</p><div class="evidence-actions"><button id="copy" disabled>Sao chép JSON</button><button id="download" disabled>Tải JSON minh họa</button><span id="copy-status" role="status"></span></div><pre id="json">{}</pre></div></details>
+  <footer><p>Trust anchor cục bộ cho demo.test · HTTP trong mạng lab · Relay mô phỏng sửa phản hồi, không phải khai thác Kaminsky.</p><details class="review"><summary>Tình huống để review giao diện</summary><label for="fixture">Kết quả minh họa lần chạy tiếp theo</label><select id="fixture"><option value="scenario">Theo kịch bản</option><option value="dns-error">DNS timeout</option><option value="http-error">HTTP không kết nối được</option><option value="infra-error">Lab không sẵn sàng</option></select></details></footer>
+</main>
+</body>
+</html>

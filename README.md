@@ -8,7 +8,8 @@ và [Git workflow](docs/GITFLOW.md).
 Đã có hai website, BIND ký zone, relay sửa phản hồi và hai Unbound có/không
 xác thực DNSSEC. Feature dns-core kiểm chứng đủ baseline → attack → recovery.
 Đã có worker hỏi từng resolver rồi truy cập HTTP theo đúng IP nhận được.
-Chưa có dashboard. Chế độ kiểm tra trực tiếp authority vẫn giữ cho chẩn đoán.
+Đã có dashboard layout dùng dữ liệu minh họa, chưa nối API/lab thật.
+Chế độ kiểm tra trực tiếp authority vẫn giữ cho chẩn đoán.
 
 | Dịch vụ | IP lab | Cổng xem trên host | Site ID |
 |---|---|---|---|
@@ -122,3 +123,16 @@ Khi bị sửa, plain thực sự đến web-fake; secure không gửi HTTP. K�
 IP DNS, IP kết nối, status và nội dung HTTP; đối chiếu access log theo run_id.
 25 test và ba kịch bản worker thực tế đã đạt.
 Xem [WORKER_STAGE.md](docs/WORKER_STAGE.md) để đọc schema, CLI và giới hạn đồng bộ.
+
+## Xem dashboard layout (dữ liệu minh họa)
+
+Từ thư mục gốc repo, chạy Python trên host:
+
+```powershell
+python -m http.server 8080 --bind 127.0.0.1 --directory dashboard
+```
+
+Mở http://127.0.0.1:8080/templates/index.html. Thử Bình thường → Can thiệp →
+Khôi phục; xem hai panel, trạng thái chờ/lỗi và JSON minh họa. Giao diện chưa
+truy vấn DNS/HTTP, chưa điều khiển Docker và chưa có Flask backend.
+Xem [hướng dẫn layout](docs/DASHBOARD_LAYOUT.md) để hiểu cấu trúc và cách review.
