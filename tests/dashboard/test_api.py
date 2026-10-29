@@ -92,7 +92,10 @@ class FakeRunner:
         return "time-window context only"
 
     def proof(self):
-        return {"rrsig_unchanged": True, "records": {}}
+        signature = "www.demo.test. 15 IN RRSIG A 13 3 15 TEST-UNIT-SIGNATURE"
+        return {"rrsig_unchanged": True, "rrsig_sha256": hashlib.sha256(signature.encode()).hexdigest(),
+                "records": {"authority": {"answers": ["172.30.53.80"], "raw": signature},
+                            "tamper": {"answers": ["172.30.53.90" if self.mode["attack"] else "172.30.53.80"], "raw": signature}}}
 
 
 class APITests(unittest.TestCase):

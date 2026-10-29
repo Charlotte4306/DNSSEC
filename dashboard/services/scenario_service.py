@@ -99,6 +99,18 @@ class LabService:
                 with self.meta_lock:
                     self.prepared = None
             rows, context, errors = [], "", []
+            proof = None
+            try:
+                proof = {"source": "live", "requested_at": now(), "data": self.runner.proof()}
+            except APIError as exc:
+                errors.append({"source": "proof", "code": exc.code, "message": exc.message})
+            after = self.runner.snapshot()
+            consistent = consistent and before == after
+            if not consistent:
+                with self.meta_lock:
+                    self.prepared = None
+            if proof is not None:
+                proof.update(revision=after["changed_at"], consistent_with_run=consistent)
             for kind, getter in [("http_access", lambda since: self.collect_web_logs(worker, since)), ("dns_context", self.runner.dns_logs)]:
                 try:
                     value = getter(started)
@@ -113,7 +125,7 @@ class LabService:
             result = deepcopy(worker)
             result.update(source="live", requested_at=started, finished_at=now(), consistent=consistent,
                           scenario_revision=before["changed_at"], scenario_after=after,
-                          evidence={"http_access": matching, "collection_errors": errors,
+                          evidence={"http_access": matching, "proof": proof, "collection_errors": errors,
                                     "dns_context": context, "dns_context_correlation": "time_window_only_not_exact_run_id",
                                     "log_window_start": started,
                                     "note": "SERVFAIL không tự chứng minh lỗi chữ ký; log DNS chỉ là ngữ cảnh theo thời gian."})

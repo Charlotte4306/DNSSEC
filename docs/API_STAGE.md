@@ -185,3 +185,13 @@ Feature backend có thể commit/review sau khi kiểm tra diff. Không tự com
 PR `feature/dashboard-api` → `develop`. Sau khi merge, trở lại
 `feature/dashboard-layout`, fetch/merge develop và triển khai tích hợp live trên
 chính nhánh đó theo GitFlow đã cập nhật.
+
+
+## Bổ sung ở feature/evidence-tests
+
+POST /api/run tự lấy proof trong lock và lưu proof.json nếu thu được; mỗi run
+mới có checksums.json. GET /api/runs/<id>/integrity trả verified/status/tập tệp,
+HTTP 200 chỉ nghĩa là trả được kết quả kiểm tra, phải đọc verified. Run mới bị
+đổi/mất artifact sẽ bị GET result/preview từ chối 409 EVIDENCE_CORRUPT. Run cũ
+không có manifest vẫn đọc được nhưng integrity là unavailable, không được coi
+là đã xác minh. Chi tiết ở [EVIDENCE_STAGE.md](EVIDENCE_STAGE.md).
