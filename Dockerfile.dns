@@ -1,7 +1,7 @@
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends bind9 bind9-utils dnsutils \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bind9 bind9-utils dnsutils unbound python3 python3-dnspython \
     && rm -rf /var/lib/apt/lists/*
-COPY lab/conf/named.conf /etc/bind/named.conf
-COPY lab/zones/ /etc/bind/zones/
-RUN named-checkconf && named-checkzone demo.test /etc/bind/zones/demo.test
-CMD ["named", "-g", "-u", "bind", "-c", "/etc/bind/named.conf"]
+COPY lab/ /app/
+RUN named-checkzone demo.test /app/zones/demo.test
+CMD ["named", "-g", "-u", "bind", "-c", "/app/conf/named.conf"]

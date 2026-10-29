@@ -1,4 +1,4 @@
-"""DNS -> the exact answer IP -> HTTP. No DNSSEC validation at this stage."""
+"""DNS -> the exact answer IP -> HTTP. Direct authority query; this helper does not validate DNSSEC."""
 import argparse
 import json
 import uuid
@@ -9,7 +9,7 @@ from visit import visit, ALLOWED_IPS
 def browse(name="www.demo.test", run_id=None):
     run_id = run_id or str(uuid.uuid4())
     dns = probe(name)
-    result = {"run_id": run_id, "stage": "unsigned_dns_to_http", "dns": dns,
+    result = {"run_id": run_id, "stage": "authority_dns_to_http", "dns": dns,
               "http": {"attempted": False, "request_sent": False,
                        "connected_ip": None, "status": None, "error": None},
               "stop_reason": None}

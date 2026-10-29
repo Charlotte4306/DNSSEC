@@ -1,27 +1,105 @@
 name: dnssec-visual-lab
 
 services:
+  init:
+    image: dnssec-core:local
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile.dns
+    command: ["python3", "/app/init_dnssec.py"]
+    networks: [lab]
+    volumes:
+      - dns-keys:/keys
+      - signed-zone:/signed
+      - trust-data:/trust
+      - attack-state:/state
+
   authority:
+    image: dnssec-core:local
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile.dns
     networks:
       lab:
         ipv4_address: 172.30.53.10
+    volumes:
+      - signed-zone:/signed:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "dig @127.0.0.1 www.demo.test A +short | grep -Fxq '172.30.53.80'"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      test: ["CMD-SHELL", "dig @127.0.0.1 demo.test DNSKEY +short | grep -q '^257'"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+
+  tamper:
+    image: dnssec-core:local
+    pull_policy: never
+    command: ["python3", "/app/tamper.py"]
+    networks:
+      lab:
+        ipv4_address: 172.30.53.20
+    volumes:
+      - attack-state:/state:ro
+    depends_on:
+      authority:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "dig @127.0.0.1 demo.test DNSKEY +short | grep -q '^257'"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+
+  secure:
+    image: dnssec-core:local
+    pull_policy: never
+    command: ["unbound", "-d", "-c", "/app/conf/secure.conf"]
+    networks:
+      lab:
+        ipv4_address: 172.30.53.30
+    volumes:
+      - trust-data:/trust:ro
+    depends_on:
+      tamper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "dig @127.0.0.1 demo.test DNSKEY +dnssec | grep -q 'flags:.* ad[; ]'"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+
+  plain:
+    image: dnssec-core:local
+    pull_policy: never
+    command: ["unbound", "-d", "-c", "/app/conf/plain.conf"]
+    networks:
+      lab:
+        ipv4_address: 172.30.53.40
+    depends_on:
+      tamper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "dig @127.0.0.1 demo.test DNSKEY +short | grep -q '^257'"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
 
   client:
+    volumes:
+      - attack-state:/state
+      - ./evidence:/evidence
     build:
       context: .
       dockerfile: Dockerfile.client
     networks:
       - lab
     depends_on:
-      authority:
+      secure:
+        condition: service_healthy
+      plain:
         condition: service_healthy
       web-good:
         condition: service_healthy
@@ -74,3 +152,9 @@ networks:
     ipam:
       config:
         - subnet: 172.30.53.0/24
+
+volumes:
+  dns-keys:
+  signed-zone:
+  trust-data:
+  attack-state:
