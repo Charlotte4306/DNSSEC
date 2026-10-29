@@ -7,8 +7,8 @@ và [Git workflow](docs/GITFLOW.md).
 
 Đã có hai website, BIND ký zone, relay sửa phản hồi và hai Unbound có/không
 xác thực DNSSEC. Feature dns-core kiểm chứng đủ baseline → attack → recovery.
-Chưa có dashboard. Client HTTP hiện hỏi trực tiếp authority; luồng HTTP qua từng
-resolver sẽ được hoàn thiện ở feature dns-http-worker.
+Đã có worker hỏi từng resolver rồi truy cập HTTP theo đúng IP nhận được.
+Chưa có dashboard. Chế độ kiểm tra trực tiếp authority vẫn giữ cho chẩn đoán.
 
 | Dịch vụ | IP lab | Cổng xem trên host | Site ID |
 |---|---|---|---|
@@ -105,3 +105,20 @@ plain nhận IP .90 khi bị sửa; secure trả SERVFAIL và không IP.
 Sau phục hồi secure trở về .80 với AD=true. Kết quả kiểm thử được lưu ngoài Git.
 Xem [DNS_STAGE.md](docs/DNS_STAGE.md) để đọc code, volume, khóa, thời hạn chữ ký,
 kiểm thử và giới hạn chính xác của feature.
+
+
+## Worker DNS → HTTP đã hoàn thành
+
+```powershell
+.\worker.ps1 test
+.\dns.ps1 baseline
+.\worker.ps1 compare
+.\dns.ps1 attack
+.\worker.ps1 compare
+.\dns.ps1 recover
+```
+
+Khi bị sửa, plain thực sự đến web-fake; secure không gửi HTTP. Kết quả JSON có
+IP DNS, IP kết nối, status và nội dung HTTP; đối chiếu access log theo run_id.
+25 test và ba kịch bản worker thực tế đã đạt.
+Xem [WORKER_STAGE.md](docs/WORKER_STAGE.md) để đọc schema, CLI và giới hạn đồng bộ.
