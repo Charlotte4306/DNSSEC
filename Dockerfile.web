@@ -1,0 +1,7 @@
+FROM python:3.14-slim
+
+WORKDIR /app
+COPY websites/ /app/websites/
+ENV PYTHONUNBUFFERED=1
+EXPOSE 80
+CMD ["python", "/app/websites/server.py"]

@@ -1,0 +1,61 @@
+name: dnssec-visual-lab
+
+services:
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    networks:
+      - lab
+    depends_on:
+      web-good:
+        condition: service_healthy
+      web-fake:
+        condition: service_healthy
+
+  web-good:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+    environment:
+      SITE_ROLE: good
+    networks:
+      lab:
+        ipv4_address: 172.30.53.80
+      preview: {}
+    # Temporary host port for checking this stage in a browser.
+    ports:
+      - "127.0.0.1:8081:80"
+
+  web-fake:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+    environment:
+      SITE_ROLE: fake
+    networks:
+      lab:
+        ipv4_address: 172.30.53.90
+      preview: {}
+    ports:
+      - "127.0.0.1:8082:80"
+
+networks:
+  preview: {}
+  lab:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.53.0/24
