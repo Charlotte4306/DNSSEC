@@ -8,7 +8,9 @@ và [Git workflow](docs/GITFLOW.md).
 Đã có hai website, BIND ký zone, relay sửa phản hồi và hai Unbound có/không
 xác thực DNSSEC. Feature dns-core kiểm chứng đủ baseline → attack → recovery.
 Đã có worker hỏi từng resolver rồi truy cập HTTP theo đúng IP nhận được.
-Chưa có dashboard. Chế độ kiểm tra trực tiếp authority vẫn giữ cho chẩn đoán.
+Đã có Flask API điều khiển lab thật, lưu evidence và phục vụ preview đã làm sạch.
+Giao diện được tích hợp riêng trên nhánh dashboard-layout; nhánh API chưa có UI.
+Chế độ kiểm tra trực tiếp authority vẫn giữ cho chẩn đoán.
 
 | Dịch vụ | IP lab | Cổng xem trên host | Site ID |
 |---|---|---|---|
@@ -122,3 +124,28 @@ Khi bị sửa, plain thực sự đến web-fake; secure không gửi HTTP. K�
 IP DNS, IP kết nối, status và nội dung HTTP; đối chiếu access log theo run_id.
 25 test và ba kịch bản worker thực tế đã đạt.
 Xem [WORKER_STAGE.md](docs/WORKER_STAGE.md) để đọc schema, CLI và giới hạn đồng bộ.
+
+## Backend API trên host
+
+Lab Docker cần đang chạy. Từ thư mục gốc repo:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r dashboard/requirements.txt
+.\.venv\Scripts\python.exe dashboard/app.py --port 18766
+```
+
+Dùng lại `.venv` nếu đã có. Mặc định app dùng cổng 8080; ví dụ chọn 18766 để
+tránh cổng bị chặn/bận trên máy hiện tại. API tại http://127.0.0.1:18766;
+GET `/api/health` và `/api/state`, POST JSON `/api/scenario`, `/api/run`, `/api/proof`.
+Chọn scenario qua API trước khi run để chuẩn bị mode và flush cache. Đây là
+backend, chưa phải dashboard UI. Chạy một server, không đổi mode bằng CLI đồng thời.
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/dashboard -p test_api.py -v
+# Dừng API server trước khi chạy test Docker thật sau:
+.\.venv\Scripts\python.exe tests/dashboard/integration_api.py
+```
+
+Xem [API_STAGE.md](docs/API_STAGE.md) để có ví dụ PowerShell, hợp đồng JSON,
+cơ chế khóa, ý nghĩa bằng chứng và kết quả kiểm thử thực tế.

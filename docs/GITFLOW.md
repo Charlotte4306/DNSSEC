@@ -44,11 +44,22 @@ Phải review và ghép nhánh này trước khi ba người xây phần riêng.
 | 1 | `feature/dns-core` | BIND, ký zone, relay, Unbound plain/secure, trust anchor | DNS hợp lệ → bị sửa → khôi phục chạy đúng; có log và đối chứng |
 | 1 song song | `feature/web-targets` | Hai web server, trang hợp lệ/giả lập, site_id và access log | Client gọi từng IP nhận đúng nội dung và log |
 | 2 | `feature/dns-http-worker` | DNS theo resolver rồi HTTP đến đúng IP, xuất JSON | Plain đến trang giả khi bị sửa; secure dừng và không HTTP |
-| 2 song song | `feature/dashboard-layout` | Bố cục hai panel, sơ đồ, trạng thái chờ/lỗi | Có thể review bố cục; dữ liệu mock được ghi nhãn và chỉ dùng phát triển |
 | 3 | `feature/dashboard-api` | Flask, Docker runner, điều phối mode, khóa tác vụ | API dùng worker thật, lỗi rõ ràng và không trộn trạng thái |
-| 4 | `feature/dashboard-live` | Nối UI với API, preview từ HTTP thật, bằng chứng | UI bỏ mock trong chế độ live; kết quả khớp phép thử thật |
+| 4 | `feature/dashboard-layout` | Toàn bộ dashboard: hai panel, sơ đồ, trạng thái chờ/lỗi, nối API, preview HTTP thật và bằng chứng | API đã được ghép; UI dùng kết quả thật trong chế độ live, không tự quay về mock khi lỗi; baseline/attack/recovery khớp worker |
 | 4 | `feature/evidence-tests` | Lưu theo run_id, kiểm thử đầy đủ và tình huống lỗi | Báo cáo chỉ rõ ca đạt/chưa đạt, có bằng chứng |
 | 5 | `docs/demo-handover` | README, lệnh chạy, tổng duyệt, kịch bản 5–6 phút | Một người khác chạy lại theo hướng dẫn được |
+
+Theo thống nhất mới, phần layout và tích hợp live làm chung trên
+`feature/dashboard-layout`, không tạo nhánh riêng cho phần live. Bố cục dùng mock
+chỉ là mốc phát triển trong nhánh này; có thể commit để lưu tiến độ nhưng chưa
+coi là hoàn thành dashboard hay ghép vào `develop` ở mốc đó.
+
+`feature/dashboard-api` vẫn là nhánh backend riêng, tạo từ `develop`. Khi API
+được review và ghép vào `develop`, cập nhật nhánh dashboard bằng
+`git merge origin/develop` sau khi fetch và bảo đảm công việc đang làm đã được
+commit. Sau đó hoàn thành nối API và kiểm thử giao diện với lab thật trên chính
+`feature/dashboard-layout`, rồi mở một PR dashboard hoàn chỉnh vào `develop`.
+Không cần merge hay xóa một nhánh live chưa được tạo.
 
 Nhóm có thể phân vai: người A làm DNS/lab; người B làm website/worker; người C làm dashboard. Đây là gợi ý theo mảng, không thay thế phân công nhân sự nhóm đã chốt. Mỗi người viết tài liệu và kiểm thử cho phần mình.
 
