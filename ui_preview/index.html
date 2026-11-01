@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Phòng thử nghiệm DNSSEC: quan sát hai resolver xử lý cùng một phản hồi DNS bị sửa, từ xác thực đến truy cập HTTP thật.">
+  <title>DNSSEC · Một địa chỉ. Hai kết quả.</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/fonts/nunito-fonts.css">
+  <link rel="stylesheet" href="/static/css/kawaii.css">
+  <script defer src="/static/js/motion.js"></script>
+  <script defer src="/static/js/app.js"></script>
+  <script defer src="/static/js/kawaii.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#lab">Bỏ qua giới thiệu, vào lab</a>
+<header class="masthead">
+  <a class="identity" href="#story" aria-label="DNSSEC Visual Lab, đầu trang"><span class="brand-symbol" aria-hidden="true">↳</span><span>DNSSEC<span class="brand-sub"> / visual lab</span></span></a>
+  <nav aria-label="Điều hướng trang">
+    <a href="#story" class="nav-link" aria-label="Khám phá"><span data-scramble aria-hidden="true">Khám phá</span></a>
+    <a href="#scenarios" class="nav-link" aria-label="Kịch bản"><span data-scramble aria-hidden="true">Kịch bản</span></a>
+    <a href="#lab" class="nav-link nav-lab">Vào lab <span aria-hidden="true">↗</span></a>
+  </nav>
+  <button id="motion-toggle" class="motion-toggle" aria-pressed="true">Hiệu ứng bật</button>
+  <div class="reading-progress" aria-hidden="true"></div>
+</header>
+<main class="workspace">
+  <section class="intro" id="story" aria-labelledby="intro-title">
+    <canvas id="network-art" aria-hidden="true"></canvas>
+    <div class="section-shell intro-inner">
+      <div class="intro-index"><span>DNS Security Extensions</span><span>Thí nghiệm có đối chứng</span></div>
+      <div class="kawaii-banner" data-reveal>
+        <span class="banner-halo" aria-hidden="true"></span>
+        <img class="banner-mascot" src="/static/img/mascot-shield.svg" alt="" aria-hidden="true" width="200" height="200">
+        <div class="banner-body">
+          <p class="banner-kicker"><svg class="kicon" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-spark"/></svg><span>DNSSEC Visual Lab</span></p>
+          <h1 id="intro-title" class="banner-title"><span class="line-mask"><span class="reveal-line"><span class="chip"><span class="chip-word">Một</span><span class="chip-word">địa</span><span class="chip-word">chỉ.</span></span></span></span><span class="line-mask"><span class="reveal-line"><span class="chip chip-alt"><span class="chip-word">Hai</span><span class="chip-word">kết</span><span class="chip-word">quả.</span></span></span></span></h1>
+          <p class="banner-sub">Một phản hồi DNS. Một bên vẫn tin, một bên từ chối.</p>
+        </div>
+        <span class="banner-sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <div class="banner-ribbon" aria-hidden="true"><div class="ribbon-track"><svg viewBox="0 0 24 24"><use href="#g-star"/></svg><svg viewBox="0 0 24 24"><use href="#g-cloud"/></svg><svg viewBox="0 0 24 24"><use href="#g-heart"/></svg><svg viewBox="0 0 24 24"><use href="#g-lock"/></svg><svg viewBox="0 0 24 24"><use href="#g-shield"/></svg><svg viewBox="0 0 24 24"><use href="#g-spark"/></svg><svg viewBox="0 0 24 24"><use href="#g-star"/></svg><svg viewBox="0 0 24 24"><use href="#g-cloud"/></svg><svg viewBox="0 0 24 24"><use href="#g-heart"/></svg><svg viewBox="0 0 24 24"><use href="#g-lock"/></svg><svg viewBox="0 0 24 24"><use href="#g-shield"/></svg><svg viewBox="0 0 24 24"><use href="#g-spark"/></svg></div></div>
+      </div>
+      <div class="intro-bottom">
+        <a class="text-link hero-link" href="#lab"><span class="roll-label"><span>Vào phòng thử nghiệm</span><span aria-hidden="true">Vào phòng thử nghiệm</span></span><span aria-hidden="true">↗</span></a>
+        <p>Hai resolver, một phản hồi bị sửa.</p>
+        <a href="#scenarios" class="scroll-link">Cuộn để khám phá <span aria-hidden="true">↓</span></a>
+      </div>
+      <p class="art-caption">Hình minh họa · số liệu từ truy vấn thật</p>
+    </div>
+  </section>
+
+  <section id="scenarios" class="scenario-story section-shell" aria-labelledby="scenario-title">
+    <div class="section-marker"><span>Kịch bản</span><span>Trước · Trong · Sau can thiệp</span></div>
+    <div class="scenario-layout">
+      <div class="scenario-intro">
+        <h2 id="scenario-title" data-reveal><span class="line-mask"><span class="reveal-line">Chuyện gì xảy ra</span></span><span class="line-mask"><span class="reveal-line">khi IP bị sửa?</span></span></h2>
+        <div class="scenario-visual" data-preview="baseline" aria-label="Sơ đồ giải thích kịch bản, không phải kết quả đo">
+          <div class="illustration-tag">Minh họa cơ chế</div>
+          <div class="visual-origin"><span>Phản hồi đã ký</span><strong>172.30.53.80</strong><span class="signature-chip">A + RRSIG</span></div>
+          <div class="visual-fork" aria-hidden="true"><span></span><span></span></div>
+          <div class="visual-destinations"><div><span>Không xác thực</span><strong id="preview-plain">.80</strong><small id="preview-plain-note">Đến trang hợp lệ</small></div><div><span>Có xác thực</span><strong id="preview-secure">.80</strong><small id="preview-secure-note">Chữ ký hợp lệ</small></div></div>
+        </div>
+      </div>
+      <div class="scenario-list" aria-label="Khám phá cơ chế ba kịch bản">
+        <button class="scenario-row is-active" data-preview-mode="baseline" aria-pressed="true"><span class="row-heading"><span data-scramble aria-hidden="true">Bình thường</span><span class="row-arrow" aria-hidden="true">↗</span></span><span class="sr-only">Bình thường. </span><span class="row-description">IP và chữ ký nguyên vẹn; cả hai resolver tới trang hợp lệ.</span></button>
+        <button class="scenario-row" data-preview-mode="attack" aria-pressed="false"><span class="row-heading"><span data-scramble aria-hidden="true">Can thiệp</span><span class="row-arrow" aria-hidden="true">↗</span></span><span class="sr-only">Can thiệp. </span><span class="row-description">Relay đổi IP thành .90, giữ chữ ký cũ. Plain tin, secure từ chối.</span></button>
+        <button class="scenario-row" data-preview-mode="recovery" aria-pressed="false"><span class="row-heading"><span data-scramble aria-hidden="true">Khôi phục</span><span class="row-arrow" aria-hidden="true">↗</span></span><span class="sr-only">Khôi phục. </span><span class="row-description">Ngừng sửa, xóa cache. Truy vấn mới trở về trang hợp lệ.</span></button>
+        <a class="text-link story-cta" href="#lab">Tự chạy và đối chiếu bằng chứng <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section id="lab" class="lab-stage section-shell" aria-labelledby="lab-title">
+    <div class="lab-heading"><h2 id="lab-title">Phòng thử nghiệm.</h2><div class="source-badge" id="lab-status" role="status">Đang kiểm tra kết nối lab…</div></div>
+    <section class="controls" aria-label="Điều khiển lab">
+      <fieldset class="scenario"><legend>Kịch bản</legend>
+        <label><input type="radio" name="scenario" value="baseline" checked><span>Bình thường</span></label>
+        <label><input type="radio" name="scenario" value="attack"><span>Can thiệp</span></label>
+        <label><input type="radio" name="scenario" value="recovery"><span>Khôi phục</span></label>
+      </fieldset>
+      <div class="target"><span>Tên miền thử nghiệm</span><strong>www.demo.test</strong></div>
+      <button id="run" class="primary" disabled>Truy vấn và truy cập</button>
+      <button id="refresh">Kiểm tra lab</button>
+    </section>
+  <section class="topology" aria-labelledby="flow-heading">
+    <div class="section-line"><h2 id="flow-heading">Đường đi của truy vấn</h2><span>Client ↔ resolver: mốc worker · relay/BIND: minh họa</span></div>
+    <div class="diagram-scroll"><svg viewBox="0 0 1160 188" role="img" aria-labelledby="svg-title svg-desc">
+      <title id="svg-title">Máy khách hỏi DNS qua hai resolver, relay và BIND</title>
+      <desc id="svg-desc">Truy vấn đi từ trái sang phải, phản hồi về theo chiều ngược lại. Sau DNS thành công, máy khách mới gửi HTTP đến IP nhận được.</desc>
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#7990a7"/></marker></defs>
+      <g class="dns-path" fill="none" stroke="#7990a7" stroke-width="2" marker-end="url(#arrow)">
+        <path id="dns-plain" d="M176 80 H224 V40 H270"/><path id="dns-secure" d="M176 80 H224 V120 H270"/>
+        <path class="illustrative" d="M465 40 H530 V80 H585"/><path class="illustrative" d="M465 120 H530 V80"/><path class="illustrative" d="M780 80 H895"/>
+      </g>
+      <g class="node" tabindex="0" data-node-note="Client hỏi DNS trước; chỉ khi có IP sử dụng được mới kết nối HTTP tới đúng IP đó." aria-label="Máy khách lab"><rect x="12" y="46" width="164" height="68" rx="10"/><text x="94" y="75">Máy khách lab</text><text class="node-sub" x="94" y="97">DNS → HTTP</text></g>
+      <g class="node" tabindex="0" data-node-note="Plain không xác thực DNSSEC. Một IP đã bị thay đổi vẫn có thể được chấp nhận." id="resolver-plain" aria-label="Resolver plain"><rect x="270" y="10" width="195" height="59" rx="8"/><text x="367" y="35">Resolver plain</text><text class="node-sub" x="367" y="55">Không xác thực · .40</text></g>
+      <g class="node secure-node" tabindex="0" data-node-note="Secure kiểm tra chữ ký theo trust anchor của lab. Phản hồi không hợp lệ sẽ bị từ chối." id="resolver-secure" aria-label="Resolver secure"><rect x="270" y="91" width="195" height="59" rx="8"/><text x="367" y="116">Resolver secure</text><text class="node-sub" x="367" y="136">Xác thực DNSSEC · .30</text></g>
+      <g class="node" id="relay-node" tabindex="0" data-node-note="Relay nằm giữa resolver và BIND. Khi can thiệp, relay sửa bản ghi A nhưng giữ nguyên RRSIG." aria-label="Relay · .20"><rect x="585" y="46" width="195" height="68" rx="10"/><text x="682" y="75">Relay · .20</text><text class="node-sub" id="relay-label" x="682" y="97">Chuyển tiếp phản hồi</text></g>
+      <g class="node" tabindex="0" data-node-note="BIND phục vụ zone demo.test đã ký và IP gốc của website hợp lệ." aria-label="BIND authoritative · .10"><rect x="895" y="46" width="248" height="68" rx="10"/><text x="1019" y="75">BIND authoritative · .10</text><text class="node-sub" x="1019" y="97">Zone demo.test đã ký</text></g>
+      <text class="path-note" x="840" y="62">Minh họa</text>
+      <g class="http-routes" fill="none" stroke="#bcc1ce" stroke-width="2">
+        <path id="http-plain" d="M94 114 V158 H675"/>
+        <path id="http-secure" d="M115 114 V180 H675"/>
+      </g>
+      <text class="http-route-label" id="http-plain-label" x="685" y="163">plain · chưa kết nối HTTP</text>
+      <text class="http-route-label" id="http-secure-label" x="685" y="185">secure · chưa kết nối HTTP</text>
+    </svg></div>
+    <div id="node-tip" class="node-tooltip" hidden></div>
+    <div class="validation-steps" aria-label="Các mốc xác thực quan sát được"><span id="validation-received">Nhận DNS: chờ</span><span id="validation-resolver">AD / SERVFAIL: chờ</span><span id="validation-proof">A / RRSIG / log: chờ</span></div>
+    <div class="route-summary" id="route-summary">Chưa có truy vấn.</div>
+  </section>
+
+
+    <div class="result-heading"><h2>Cùng phản hồi. Khác quyết định.</h2><span id="run-meta">Chưa có phép đo</span></div>
+    <div id="notice" class="notice" role="status" aria-live="polite">Đang kiểm tra lab…</div>
+    <section class="comparison" id="results" aria-label="So sánh hai resolver" aria-busy="false">
+      <article class="result-panel" id="plain-panel"><header><div><h3>Không xác thực DNSSEC</h3><p>Unbound plain · 172.30.53.40</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
+      <article class="result-panel" id="secure-panel"><header><div><h3>Có xác thực DNSSEC</h3><p>Unbound secure · 172.30.53.30</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
+    </section>
+    <details class="evidence" id="evidence"><summary>Bằng chứng lần chạy <span>DNS · HTTP · log · chữ ký</span><span class="detail-plus" aria-hidden="true">+</span></summary><div class="evidence-body"><p id="evidence-explanation">Chưa có dữ liệu.</p><div class="evidence-actions"><button id="restore" disabled>Xem lần chạy gần nhất</button><button id="proof" disabled>Đối chiếu A và RRSIG</button><button id="copy" disabled>Sao chép JSON</button><button id="download" disabled>Tải JSON kết quả</button><span id="copy-status" role="status"></span></div><section class="timeline-section" aria-labelledby="timeline-title"><div class="timeline-heading"><h3 id="timeline-title">Diễn tiến từ worker</h3><span id="timeline-status">Chưa chạy tác vụ</span></div><ol id="event-timeline" class="event-timeline"></ol></section>
+<section id="recovery-comparison" class="recovery-comparison" hidden><h3>Đối chiếu sau khôi phục</h3><p id="recovery-note"></p><div id="recovery-table" class="table-scroll"></div></section>
+<pre id="json">{}</pre><div id="proof-result" hidden><h3>Đối chiếu bổ sung từ authority và relay</h3><p id="proof-note"></p><pre id="proof-json"></pre></div></div></details>
+    <footer><p>Trust anchor cục bộ cho demo.test. HTTP trong mạng lab. Relay mô phỏng sửa phản hồi, không phải khai thác Kaminsky.</p><a class="back-top" href="#story">Về đầu trang <span aria-hidden="true">↑</span></a></footer>
+  </section>
+</main>
+<svg class="kawaii-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><defs>
+  <symbol id="g-star" viewBox="0 0 24 24"><path d="M12 2.4l2.7 6.4 6.9.6-5.2 4.5 1.5 6.8L12 17.4 6.1 20.7l1.5-6.8L2.4 9.4l6.9-.6z"/></symbol>
+  <symbol id="g-heart" viewBox="0 0 24 24"><path d="M12 20.6C6.2 16.3 4 12.6 4 9.8 4 7.2 6 5.4 8.2 5.4c1.6 0 3 .9 3.8 2.2.8-1.3 2.2-2.2 3.8-2.2C18 5.4 20 7.2 20 9.8c0 2.8-2.2 6.5-8 10.8z"/></symbol>
+  <symbol id="g-cloud" viewBox="0 0 24 24"><path d="M7.6 18.4h9.6a3.9 3.9 0 0 0 .5-7.8 5.4 5.4 0 0 0-10.4-1 3.7 3.7 0 0 0 .3 8.8z"/></symbol>
+  <symbol id="g-lock" viewBox="0 0 24 24"><path d="M8 10V8a4 4 0 0 1 8 0v2h.5A1.5 1.5 0 0 1 18 11.5v6A2.5 2.5 0 0 1 15.5 20h-7A2.5 2.5 0 0 1 6 17.5v-6A1.5 1.5 0 0 1 7.5 10H8zm2 0h4V8a2 2 0 0 0-4 0v2z"/></symbol>
+  <symbol id="g-shield" viewBox="0 0 24 24"><path d="M12 2.8l7.2 2.6v6c0 4.3-2.9 7.4-7.2 8.8C7.7 18.8 4.8 15.7 4.8 11.4v-6z"/></symbol>
+  <symbol id="g-spark" viewBox="0 0 24 24"><path d="M12 2.6l1.9 5.9 5.9 1.9-5.9 1.9L12 18.2l-1.9-5.9-5.9-1.9 5.9-1.9z"/></symbol>
+</defs></svg>
+</body>
+</html>

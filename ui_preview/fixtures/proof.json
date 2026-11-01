@@ -1,0 +1,42 @@
+{
+  "source": "live",
+  "requested_at": "2026-11-01T03:01:53.648773+00:00",
+  "data": {
+    "records": {
+      "authority": {
+        "server": "172.30.53.10",
+        "name": "www.demo.test",
+        "type": "A",
+        "transport": "UDP",
+        "rcode": "NOERROR",
+        "ad": false,
+        "aa": true,
+        "answers": [
+          "172.30.53.80"
+        ],
+        "raw": "id 57905\nopcode QUERY\nrcode NOERROR\nflags QR AA RD\nedns 0\neflags DO\npayload 1232\n;QUESTION\nwww.demo.test. IN A\n;ANSWER\nwww.demo.test. 15 IN A 172.30.53.80\nwww.demo.test. 15 IN RRSIG A 13 3 15 20261201025858 20261101015858 43602 demo.test. YikjN0cQobbJkhKJqOn8odKS9Gokrroz 0YfhoCvM5bIx2Uk1ToffA+AFZxUglbVa POIWgrPjAauvl1oX4p0FrQ==\n;AUTHORITY\n;ADDITIONAL",
+        "error": null,
+        "elapsed_ms": 3.0
+      },
+      "tamper": {
+        "server": "172.30.53.20",
+        "name": "www.demo.test",
+        "type": "A",
+        "transport": "UDP",
+        "rcode": "NOERROR",
+        "ad": false,
+        "aa": true,
+        "answers": [
+          "172.30.53.90"
+        ],
+        "raw": "id 30486\nopcode QUERY\nrcode NOERROR\nflags QR AA RD\nedns 0\neflags DO\npayload 1232\n;QUESTION\nwww.demo.test. IN A\n;ANSWER\nwww.demo.test. 15 IN A 172.30.53.90\nwww.demo.test. 15 IN RRSIG A 13 3 15 20261201025858 20261101015858 43602 demo.test. YikjN0cQobbJkhKJqOn8odKS9Gokrroz 0YfhoCvM5bIx2Uk1ToffA+AFZxUglbVa POIWgrPjAauvl1oX4p0FrQ==\n;AUTHORITY\n;ADDITIONAL",
+        "error": null,
+        "elapsed_ms": 2.53
+      }
+    },
+    "rrsig_unchanged": true,
+    "rrsig_sha256": "45ff48dfba215ae3ff3df3b8121eb48e5f685ee37bcc7f004a0afe76b2166ac7"
+  },
+  "revision": "2026-11-01T03:01:47.597458+00:00",
+  "consistent_with_run": true
+}

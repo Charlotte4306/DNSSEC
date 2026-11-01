@@ -1,0 +1,369 @@
+{
+  "action": "recovery",
+  "cursor": 25,
+  "error": null,
+  "events": [
+    {
+      "branch": null,
+      "data": {
+        "action": "recovery"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "job.accepted",
+      "received_at": "2026-11-01T03:15:01.915792+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 1,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:01.915786+00:00"
+    },
+    {
+      "branch": null,
+      "data": {
+        "action": "recovery",
+        "attack": false
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "mode.changed",
+      "received_at": "2026-11-01T03:15:02.190383+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 2,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:02.190363+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "zone": "demo.test"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "cache.flushed",
+      "received_at": "2026-11-01T03:15:02.476856+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 3,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:02.476844+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "zone": "demo.test"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "cache.flushed",
+      "received_at": "2026-11-01T03:15:02.609514+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 4,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:02.609500+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "name": "www.demo.test",
+        "server": "172.30.53.40"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "dns.started",
+      "received_at": "2026-11-01T03:15:03.182223+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 5,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.181456+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "name": "www.demo.test",
+        "server": "172.30.53.30"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "dns.started",
+      "received_at": "2026-11-01T03:15:03.183243+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 6,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.182426+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "ad": false,
+        "answers": [
+          "172.30.53.80"
+        ],
+        "elapsed_ms": 10.57,
+        "error": null,
+        "rcode": "NOERROR"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "dns.response",
+      "received_at": "2026-11-01T03:15:03.192698+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 7,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.192315+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "ip": "172.30.53.80"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.connecting",
+      "received_at": "2026-11-01T03:15:03.193643+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 8,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.192432+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "ip": "172.30.53.80"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.connected",
+      "received_at": "2026-11-01T03:15:03.194172+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 9,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.193903+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "host": "www.demo.test",
+        "ip": "172.30.53.80",
+        "method": "GET"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.request_sent",
+      "received_at": "2026-11-01T03:15:03.195224+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 10,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.194235+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "ad": true,
+        "answers": [
+          "172.30.53.80"
+        ],
+        "elapsed_ms": 10.9,
+        "error": null,
+        "rcode": "NOERROR"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "dns.response",
+      "received_at": "2026-11-01T03:15:03.195592+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 11,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.193385+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "ad": true,
+        "rcode": "NOERROR",
+        "source": "resolver_response_not_internal_crypto_steps"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "validation.observed",
+      "received_at": "2026-11-01T03:15:03.196015+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 12,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.194780+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "ip": "172.30.53.80"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.connecting",
+      "received_at": "2026-11-01T03:15:03.196234+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 13,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.195403+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "ip": "172.30.53.80"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.connected",
+      "received_at": "2026-11-01T03:15:03.196439+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 14,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.195589+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "host": "www.demo.test",
+        "ip": "172.30.53.80",
+        "method": "GET"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.request_sent",
+      "received_at": "2026-11-01T03:15:03.196609+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 15,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.195717+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "site_id": "legitimate",
+        "status": 200
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.response",
+      "received_at": "2026-11-01T03:15:03.196819+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 16,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.195286+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "body_received": true,
+        "elapsed_ms": 3.63
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.finished",
+      "received_at": "2026-11-01T03:15:03.197011+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 17,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.196067+00:00"
+    },
+    {
+      "branch": "plain",
+      "data": {
+        "interpretation": "reached_legitimate_unvalidated",
+        "stop_reason": null
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "branch.completed",
+      "received_at": "2026-11-01T03:15:03.197169+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 18,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.196259+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "site_id": "legitimate",
+        "status": 200
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.response",
+      "received_at": "2026-11-01T03:15:03.197931+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 19,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.197681+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "body_received": true,
+        "elapsed_ms": 2.68
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "http.finished",
+      "received_at": "2026-11-01T03:15:03.198362+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 20,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.198093+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "interpretation": "validated",
+        "stop_reason": null
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "branch.completed",
+      "received_at": "2026-11-01T03:15:03.198663+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 21,
+      "source": "worker",
+      "timestamp": "2026-11-01T03:15:03.198209+00:00"
+    },
+    {
+      "branch": null,
+      "data": {},
+      "job_id": "mock-job-recovery",
+      "kind": "proof.started",
+      "received_at": "2026-11-01T03:15:03.377130+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 22,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:03.377118+00:00"
+    },
+    {
+      "branch": "secure",
+      "data": {
+        "available": true,
+        "consistent": true,
+        "rrsig_unchanged": true
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "proof.observed",
+      "received_at": "2026-11-01T03:15:03.801388+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 23,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:03.801375+00:00"
+    },
+    {
+      "branch": null,
+      "data": {
+        "collection_errors": [],
+        "complete": true,
+        "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "evidence.saved",
+      "received_at": "2026-11-01T03:15:04.023475+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 24,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:04.023469+00:00"
+    },
+    {
+      "branch": null,
+      "data": {
+        "result_url": "/api/runs/f6e5e807-65d2-42b3-b55f-26f42dcaf151"
+      },
+      "job_id": "mock-job-recovery",
+      "kind": "job.completed",
+      "received_at": "2026-11-01T03:15:04.023587+00:00",
+      "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+      "sequence": 25,
+      "source": "supervisor",
+      "timestamp": "2026-11-01T03:15:04.023583+00:00"
+    }
+  ],
+  "events_sha256": "9659d083d9a9b9c583df84849d180b54e5aa8f63ac2ee4d29a77d12b5b5952ee",
+  "finished_at": "2026-11-01T03:15:04.023668+00:00",
+  "job_id": "mock-job-recovery",
+  "requested_at": "2026-11-01T03:15:01.915414+00:00",
+  "result_url": "/api/runs/f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+  "run_id": "f6e5e807-65d2-42b3-b55f-26f42dcaf151",
+  "source": "live",
+  "status": "completed"
+}
