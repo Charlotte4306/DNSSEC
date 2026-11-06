@@ -11,23 +11,32 @@ if __package__ in {None, ""}:
 
 from flask import Flask, Response, jsonify, request, render_template
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dashboard.config import EVIDENCE_ROOT, REPO_ROOT, TARGET
 from dashboard.services.docker_runner import APIError, DockerRunner
 from dashboard.services.evidence_service import EvidenceStore
 from dashboard.services.scenario_service import LabService
+from dashboard.services.job_service import JobManager
 
 
 def create_app(runner=None, evidence_root=None):
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config.update(MAX_CONTENT_LENGTH=4096, JSON_SORT_KEYS=False)
+    # The public backend binds loopback and trusts one Caddy for scheme only.
+    public_hosts = {value.strip().lower() for value in os.environ.get("DNSSEC_PUBLIC_HOSTS", "").split(",") if value.strip()}
+    allowed_hosts = {"127.0.0.1", "localhost", "::1"} | public_hosts
+    if os.environ.get("DNSSEC_BEHIND_PROXY") == "1":
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=0, x_proto=1, x_host=0, x_port=0, x_prefix=0)
     service = LabService(runner or DockerRunner(), EvidenceStore(evidence_root or EVIDENCE_ROOT))
     app.extensions["lab"] = service
+    jobs = JobManager(service)
+    app.extensions["jobs"] = jobs
 
     @app.before_request
     def local_requests_only():
         host = urlsplit("http://" + request.host).hostname
-        if host not in {"127.0.0.1", "localhost", "::1"}:
-            raise APIError("INVALID_HOST", "API chỉ phục vụ localhost.", 403)
+        if host not in allowed_hosts:
+            raise APIError("INVALID_HOST", "Hostname không nằm trong cấu hình được phép.", 403)
         if request.method == "POST":
             origin = request.headers.get("Origin")
             if origin and origin != request.host_url.rstrip("/"):
@@ -74,7 +83,9 @@ def create_app(runner=None, evidence_root=None):
 
     @app.get("/api/state")
     def state():
-        return jsonify(service.state())
+        value = service.state()
+        value["active_job_id"] = jobs.active
+        return jsonify(value)
 
     @app.post("/api/scenario")
     def scenario():
@@ -89,6 +100,20 @@ def create_app(runner=None, evidence_root=None):
         if data.get("target", TARGET) != TARGET:
             raise APIError("INVALID_TARGET", "Chỉ nhận www.demo.test.", 400)
         return jsonify(service.run())
+
+    @app.post("/api/jobs")
+    def start_job():
+        data = body({"action", "target"})
+        if data.get("action") not in ("baseline", "attack", "recovery") or data.get("target", TARGET) != TARGET:
+            raise APIError("INVALID_JOB", "Chỉ nhận kịch bản lab và www.demo.test.", 400)
+        return jsonify(jobs.start(data["action"])), 202
+
+    @app.get("/api/jobs/<job_id>")
+    def job_progress(job_id):
+        cursor = request.args.get("after", "0")
+        if len(cursor)>3 or not cursor.isascii() or not cursor.isdigit():
+            raise APIError("INVALID_CURSOR", "Cursor không hợp lệ.", 400)
+        return jsonify(jobs.get(job_id, int(cursor)))
 
     @app.post("/api/proof")
     def proof():
