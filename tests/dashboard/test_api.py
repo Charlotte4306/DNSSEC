@@ -92,7 +92,10 @@ class FakeRunner:
         return "time-window context only"
 
     def proof(self):
-        return {"rrsig_unchanged": True, "records": {}}
+        signature = "www.demo.test. 15 IN RRSIG A 13 3 15 TEST-UNIT-SIGNATURE"
+        return {"rrsig_unchanged": True, "rrsig_sha256": hashlib.sha256(signature.encode()).hexdigest(),
+                "records": {"authority": {"answers": ["172.30.53.80"], "raw": signature},
+                            "tamper": {"answers": ["172.30.53.90" if self.mode["attack"] else "172.30.53.80"], "raw": signature}}}
 
 
 class APITests(unittest.TestCase):
@@ -230,6 +233,16 @@ class APITests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/state", headers={"Host": "evil.example"}).status_code, 403)
         self.assertEqual(self.client.post("/api/run", data="{", content_type="application/json").status_code, 400)
         self.assertEqual(self.client.post("/api/run", json=[]).status_code, 400)
+
+    def test_public_hosts_and_https_origin_behind_one_proxy(self):
+        with patch.dict("os.environ", {"DNSSEC_PUBLIC_HOSTS": "itscharlotte.tech,www.itscharlotte.tech", "DNSSEC_BEHIND_PROXY": "1"}):
+            client = create_app(self.runner, self.temp.name).test_client()
+        headers = {"Host": "itscharlotte.tech", "X-Forwarded-Proto": "https", "Origin": "https://itscharlotte.tech"}
+        self.assertEqual(client.get("/", headers=headers).status_code, 200)
+        self.assertEqual(client.post("/api/scenario", json={"action": "baseline"}, headers=headers).status_code, 200)
+        headers["Origin"] = "https://emsforecast.live"
+        self.assertEqual(client.post("/api/jobs", json={"action": "attack"}, headers=headers).status_code, 403)
+        self.assertEqual(client.get("/", headers={"Host": "wrong.example", "X-Forwarded-Host": "itscharlotte.tech"}).status_code, 403)
 
     def test_missing_runs_bad_branches_and_traversal(self):
         self.assertEqual(self.client.get("/api/runs/missing").status_code, 404)

@@ -17,7 +17,7 @@ ALLOWED_IPS = {target["ip"] for target in TARGETS.values()}
 MAX_BODY = 1024 * 1024
 
 
-def visit(ip, run_id, branch_id, timeout=3, host=HOST):
+def visit(ip, run_id, branch_id, timeout=3, host=HOST, on_event=None):
     # Reject names and out-of-lab addresses before any network operation.
     if host not in [HOST, "control.demo.test"]:
         raise ValueError("HTTP Host must be a permitted lab name")
@@ -41,21 +41,27 @@ def visit(ip, run_id, branch_id, timeout=3, host=HOST):
             "error": None,
         },
     }
+    def emit(kind, data):
+        if on_event is not None: on_event(kind, data)
     start = time.monotonic()
     connection = HTTPConnection(address, port=80, timeout=timeout)
     try:
+        emit("http.connecting", {"ip": address})
         connection.connect()
         result["http"]["connected_ip"] = connection.sock.getpeername()[0]
+        emit("http.connected", {"ip": result["http"]["connected_ip"]})
         connection.request("GET", "/", headers={
             "Host": host,
             "X-Lab-Run-ID": run_id,
             "X-Lab-Branch-ID": branch_id,
         })
         result["http"]["request_sent"] = True
+        emit("http.request_sent", {"ip": address, "method": "GET", "host": host})
         response = connection.getresponse()
         result["http"]["status"] = response.status
         result["http"]["site_id"] = response.getheader("X-Lab-Site")
         result["http"]["content_type"] = response.getheader("Content-Type")
+        emit("http.response", {"status": response.status, "site_id": result["http"]["site_id"]})
         body = response.read(MAX_BODY + 1)
         if len(body) > MAX_BODY:
             raise ValueError("HTTP response exceeds the 1 MiB lab limit")
@@ -64,10 +70,12 @@ def visit(ip, run_id, branch_id, timeout=3, host=HOST):
         # HTTPConnection does not automatically follow redirects.
     except (OSError, ValueError, HTTPException) as error:
         result["http"]["error"] = str(error)
+        emit("http.error", {"error": str(error)})
     finally:
         connection.close()
     result["http"]["elapsed_ms"] = round((time.monotonic() - start) * 1000, 2)
     result["finished_at"] = datetime.now(timezone.utc).isoformat()
+    emit("http.finished", {"body_received": result["http"]["body"] is not None and not result["http"]["error"], "elapsed_ms": result["http"]["elapsed_ms"]})
     return result
 
 

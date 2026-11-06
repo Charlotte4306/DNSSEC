@@ -45,12 +45,56 @@ async function availablePort() {
     await page.waitForFunction(() => !document.querySelector('#run').disabled);
     assert.equal(await page.locator('iframe').count(),0);
     assert.equal(await page.evaluate(() => typeof window.MockData),'undefined');
+    // Motion must be decorative: exploring scenarios never mutates the lab.
+    let motionPosts=0;
+    page.on('request', request=>{if(request.method()==='POST')motionPosts++;});
+    await page.waitForFunction(()=>document.querySelector('#intro-title').classList.contains('seen'));
+    await page.waitForTimeout(1000);
+    await page.screenshot({path:path.join(out,'dashboard-motion-hero.png')});
+    await page.locator('#scenarios').evaluate(el=>el.scrollIntoView({behavior:'instant',block:'start'}));
+    await page.locator('[data-preview-mode=attack]').hover();
+    await page.waitForFunction(()=>document.querySelector('.scenario-visual').dataset.preview==='attack');
+    assert.equal(await page.locator('#preview-plain').textContent(),'.90');
+    assert.equal(await page.locator('#preview-secure').textContent(),'SERVFAIL');
+    assert.equal(await page.locator('input[value=baseline]').isChecked(),true);
+    await page.locator('[data-preview-mode=recovery]').focus();
+    assert.equal(await page.locator('.scenario-visual').getAttribute('data-preview'),'recovery');
+    await page.locator('[data-preview-mode=attack]').hover();
+    await page.waitForTimeout(650);
+    await page.locator('#scenarios').screenshot({path:path.join(out,'dashboard-motion-scenarios.png')});
+    assert.equal(motionPosts,0,'hover/focus/scroll did not send POST');
+    await page.locator('#motion-toggle').click();
+    assert.equal(await page.locator('html').getAttribute('data-motion'),'off');
+    await page.reload();
+    assert.equal(await page.locator('html').getAttribute('data-motion'),'off');
+    await page.locator('#motion-toggle').click();
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
+    assert.equal(await page.locator('#motion-toggle').isDisabled(),true);
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.waitForFunction(()=>document.documentElement.dataset.motion==='on');
+    await page.locator('.nav-lab').click();
+    await page.waitForFunction(()=>document.querySelector('#lab').getBoundingClientRect().top<160);
+    await page.locator('[data-node-note]').nth(2).focus();
+    assert.equal(await page.locator('#node-tip').isVisible(),true);
+    assert.match(await page.locator('#node-tip').textContent(),/Secure/);
+    await page.locator('.nav-lab').focus();
+    assert.equal(await page.locator('#node-tip').isHidden(),true);
+    await page.waitForFunction(()=>!document.querySelector('#run').disabled);
     const run = async phase => {
       await page.locator(`input[value=${phase}]`).check();
       if (phases.length) assert.equal(await page.locator('iframe').count(),0,'old preview removed on selection change');
       await page.locator('#run').click();
       assert.equal(await page.locator('input[value=attack]').isDisabled(),true);
       assert.equal(await page.locator('#results').getAttribute('aria-busy'),'true');
+      if (phase==='baseline') {
+        await page.waitForFunction(()=>sessionStorage.getItem('dnssec-active-job'));
+        const pendingJob=await page.evaluate(()=>sessionStorage.getItem('dnssec-active-job'));
+        const postCount=motionPosts;
+        await page.reload();
+        await page.waitForFunction(id=>sessionStorage.getItem('dnssec-active-job')===id,pendingJob);
+        assert.equal(motionPosts,postCount,'reloading an active job does not POST again');
+      }
       await page.waitForFunction(() => {
         try { return JSON.parse(document.querySelector('#json').textContent).source === 'live'; } catch {return false;}
       }, null, {timeout:130000});
@@ -64,10 +108,25 @@ async function availablePort() {
       console.log('PASS live UI ' + JSON.stringify(phases.at(-1)));
       return data;
     };
+    await page.evaluate(()=>document.fonts.ready);
+    assert.equal(await page.evaluate(()=>document.fonts.check('400 16px "Be Vietnam Pro"')),true);
+    assert.equal(await page.evaluate(()=>document.fonts.check('400 16px "Xanh Mono"')),true);
     await run('baseline');
     await page.frameLocator('#secure-panel iframe').getByRole('heading',{name:'Website hợp lệ',exact:true}).waitFor();
     assert.equal(await page.locator('iframe').count(),2);
+    await page.evaluate(()=>{
+      window.observedPulses=0;
+      new MutationObserver(changes=>changes.forEach(change=>change.addedNodes.forEach(node=>{if(node.nodeName==='circle')window.observedPulses++;}))).observe(document.querySelector('.topology svg'),{childList:true});
+    });
+    let interruptedPoll=false;
+    await page.route('**/api/jobs/*?after=*',route=>{
+      if (!interruptedPoll) {interruptedPoll=true;return route.abort();}
+      return route.continue();
+    });
     const attack = await run('attack');
+    assert.equal(interruptedPoll,true,'poll disconnect exercised');
+    assert.ok(await page.evaluate(()=>window.observedPulses>0),'real worker events trigger finite pulses');
+    await page.unroute('**/api/jobs/*?after=*');
     await page.frameLocator('#plain-panel iframe').getByRole('heading',{name:/website giả lập/i}).waitFor();
     assert.equal(await page.locator('#secure-panel iframe').count(),0);
     assert.equal(attack.results.secure.http.attempted,false);
@@ -75,9 +134,28 @@ async function availablePort() {
     assert.equal(attack.results.plain.http.connected_ip,'172.30.53.90');
     assert.equal(await page.locator('#plain-panel iframe').getAttribute('sandbox'),'');
     assert.equal(await page.locator('#plain-panel iframe').getAttribute('src'),attack.results.plain.http.preview_url);
+    await page.locator('#lab').evaluate(el=>el.scrollIntoView({behavior:'instant',block:'start'}));
+    const headingTop = await page.locator('#lab-title').evaluate(el=>el.getBoundingClientRect().top);
+    const headerBottom = await page.locator('.masthead').evaluate(el=>el.getBoundingClientRect().bottom);
+    assert.ok(headingTop>=headerBottom,'lab heading is not hidden behind sticky header');
     const panelBottom = await page.locator('#secure-panel').evaluate(el=>el.getBoundingClientRect().bottom);
     assert.ok(panelBottom<=768, `Results exceed 1366x768 viewport: ${panelBottom}`);
     await page.screenshot({path:path.join(out,'dashboard-live-attack.png'),fullPage:true});
+    await page.locator('#lab').evaluate(el=>el.scrollIntoView({behavior:'instant',block:'start'}));
+    await page.screenshot({path:path.join(out,'dashboard-motion-lab.png')});
+    assert.equal(await page.locator('#http-secure').evaluate(el=>el.classList.contains('connected')),false,'SERVFAIL never lights HTTP path');
+    assert.equal(await page.locator('#http-plain').getAttribute('class'),'connected');
+    const events = await page.locator('#event-timeline li').count();
+    assert.match(await page.locator('#event-timeline li summary').first().textContent(),/\d{2}:\d{2}:\d{2}[.,]\d{3}/,'full event timestamp includes hours, minutes, seconds and milliseconds');
+    const jobID = await page.evaluate(()=>sessionStorage.getItem('dnssec-last-job'));
+    const progress = await (await fetch(base+'/api/jobs/'+jobID)).json();
+    assert.equal(progress.status,'completed');
+    assert.equal(progress.events.length,events);
+    assert.equal(new Set(progress.events.map(e=>e.sequence)).size,events);
+    assert.equal(progress.events.some(e=>e.branch==='secure'&&e.kind==='http.connected'),false);
+    assert.equal(progress.events.some(e=>e.branch==='plain'&&e.kind==='http.connected'),true);
+    const emptyCursor = await (await fetch(base+'/api/jobs/'+jobID+'?after='+progress.cursor)).json();
+    assert.deepEqual(emptyCursor.events,[]);
     await page.locator('#secure-panel button').click();
     await page.locator('#proof').click();
     await page.locator('#proof-result:not([hidden])').waitFor();
@@ -91,7 +169,8 @@ async function availablePort() {
     assert.equal((await downloadPromise).suggestedFilename(),attack.run_id+'.json');
     await page.reload();
     await page.waitForFunction(() => !document.querySelector('#restore').disabled);
-    await page.locator('#evidence summary').click();
+    assert.equal(await page.locator('#event-timeline li').count(),events,'reload replays once');
+    await page.locator('#evidence > summary').click();
     await page.locator('#restore').click();
     await page.waitForFunction(id => {
       try {return JSON.parse(document.querySelector('#json').textContent).run_id === id;} catch {return false;}
@@ -101,23 +180,36 @@ async function availablePort() {
     await page.locator('#evidence').evaluate(el=>el.open=false);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.screenshot({path:path.join(out,'dashboard-live-mobile.png'),fullPage:true});
+    await page.locator('#plain-panel iframe').scrollIntoViewIfNeeded();
+    await page.frameLocator('#plain-panel iframe').getByRole('heading',{name:/website giả lập/i}).waitFor();
+    await page.waitForTimeout(250);
+    await page.locator('#lab').screenshot({path:path.join(out,'dashboard-motion-mobile-lab.png'),style:'.masthead,.skip-link{visibility:hidden!important}'});
+    await page.locator('#story').screenshot({path:path.join(out,'dashboard-motion-mobile-hero.png')});
     await page.setViewportSize({width:1366,height:768});
     // An external mode change is real, not intercepted. Poll must invalidate the old preview.
     const changed = await fetch(base+'/api/scenario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'recovery'})});
     assert.equal(changed.status,200);
     await page.waitForFunction(()=>document.querySelector('#results').classList.contains('stale'), null, {timeout:15000});
     assert.equal(await page.locator('iframe').count(),0);
-    await run('recovery');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
+    await page.evaluate(()=>window.observedPulses=0);
+    const recoveredRun=await run('recovery');
+    assert.equal(await page.evaluate(()=>window.observedPulses),0,'reduced motion keeps event data with no SVG pulse');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    assert.match(await page.locator('#recovery-note').textContent(),new RegExp(attack.run_id));
+    assert.match(await page.locator('#recovery-note').textContent(),new RegExp(recoveredRun.run_id));
+    assert.equal(await page.locator('#recovery-table tbody tr').count(),4);
     await page.frameLocator('#secure-panel iframe').getByRole('heading',{name:'Website hợp lệ',exact:true}).waitFor();
     // From here only: explicit intercepted API failures exercise UI handling, not live acceptance.
-    await page.route('**/api/run', route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'TEST_UNAVAILABLE',message:'Test: lab unavailable'}})}));
+    await page.route('**/api/jobs', route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'TEST_UNAVAILABLE',message:'Test: lab unavailable'}})}));
     await page.locator('#run').click();
     await page.waitForFunction(()=>document.querySelector('#notice').textContent.includes('Test: lab unavailable'));
     assert.equal(await page.locator('iframe').count(),0);
     assert.equal(await page.locator('#json').textContent(),'{}');
     await page.waitForTimeout(5500);
     assert.match(await page.locator('#notice').textContent(),/Test: lab unavailable/);
-    await page.unroute('**/api/run');
+    await page.unroute('**/api/jobs');
     await page.route('**/api/health', route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({source:'live',ready:false,services:{}})}));
     await page.locator('#refresh').click();
     await page.waitForFunction(()=>document.querySelector('#lab-status').textContent==='Lab chưa sẵn sàng');
@@ -136,7 +228,7 @@ async function availablePort() {
     assert.deepEqual(errors,[]);
     assert.ok(requests.every(url=>url.startsWith(base) || url.startsWith('data:') || url==='about:blank'),requests.join('\n'));
     assert.ok(!requests.some(url=>url.includes('mock-data')));
-    console.log(JSON.stringify({result:'PASS',realPhases:phases,panelBottom,checks:['same-origin-Flask','no-mock-loader','initial-empty','busy-controls','real-HTTP-preview-sandbox','SERVFAIL-no-HTTP-no-preview','proof-A-RRSIG','download','restore-after-reload-and-proof','external-revision-stale','mobile-no-overflow','API-503-no-fallback','unhealthy-disabled','offline-boot','no-JS-errors','no-external-requests'],screenshots:out},null,2));
+    console.log(JSON.stringify({result:'PASS',realPhases:phases,panelBottom,checks:['real-job-events','active-job-reload-no-POST','poll-disconnect-reconnect','cursor-dedup','recovery-run-comparison','local-Vietnamese-fonts','scroll-reveal','hover-without-POST','keyboard-preview','motion-preference-persisted','system-reduced-motion','node-focus-tooltip','direct-lab-navigation','same-origin-Flask','no-mock-loader','initial-empty','busy-controls','real-HTTP-preview-sandbox','SERVFAIL-no-HTTP-no-preview','proof-A-RRSIG','download','restore-after-reload-and-proof','external-revision-stale','mobile-no-overflow','API-503-no-fallback','unhealthy-disabled','offline-boot','no-JS-errors','no-external-requests'],screenshots:out},null,2));
   } catch(error) {failure=error;console.error(error);}
   finally {
     if(browser) await browser.close();

@@ -160,3 +160,21 @@ Can thiệp hoặc Khôi phục rồi bấm **Truy vấn và truy cập**. Nút 
 kịch bản; nút chạy mới đổi relay, flush cache và thực hiện phép đo.
 Không chạy dashboard bằng `python -m http.server`: bản live cần Flask/API.
 Không nạp dữ liệu mock khi API lỗi. Xem [hướng dẫn dashboard](docs/DASHBOARD_LAYOUT.md).
+
+## Evidence và nghiệm thu backend
+
+Nhánh evidence-tests bổ sung proof tự lưu theo run_id, SHA-256 manifest, audit
+offline và ma trận nghiệm thu T01–T08/E01–E09. UI/UX đang để lại cho lượt sau.
+
+```powershell
+# Dừng dashboard local, giữ Docker lab đang chạy:
+.\verify.ps1 -Faults
+python tools/audit_evidence.py evidence/runs/<run_id>
+```
+
+Thay <run_id> bằng ID thật. -Faults chỉ pause/stop một số dịch vụ của lab Docker
+local rồi khôi phục; không gọi VPS. Báo cáo Markdown/JSON được ghi trong
+evidence/runs/acceptance-*. Không có -Faults sẽ báo PARTIAL vì bỏ qua ca lỗi live.
+Xem [EVIDENCE_STAGE.md](docs/EVIDENCE_STAGE.md) để đọc phạm vi, giới hạn và kết quả.
+
+Tiến độ worker, Job API và font offline: xem [docs/LIVE_EVENTS.md](docs/LIVE_EVENTS.md).

@@ -1,5 +1,6 @@
 """Create lab-only keys and refresh signatures before BIND starts."""
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 import time
@@ -27,7 +28,7 @@ def main():
     ksk = next(key for key in KEYS.glob("*.key") if "DNSKEY 257 " in key.read_text())
     (TRUST / "anchor.key").write_text(ksk.read_text())
     (TRUST / "anchor.ds").write_text(run("dnssec-dsfromkey", "-2", str(ksk)) + "\n")
-    (STATE / "mode.json").write_text(json.dumps({"attack": False}))
+    (STATE / "mode.json").write_text(json.dumps({"attack": False, "changed_at": datetime.now(timezone.utc).isoformat()}))
     for p in list(SIGNED.iterdir()) + list(TRUST.iterdir()) + list(STATE.iterdir()):
         if p.is_file(): p.chmod(0o644)
     print("Signed demo.test; local DNSKEY trust anchor ready; attack OFF.")
