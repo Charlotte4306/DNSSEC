@@ -48,7 +48,7 @@
     $("#copy").disabled = !current;
     $("#download").disabled = !current;
     $("#results").setAttribute("aria-busy", String(busy));
-    $(".topology").classList.toggle("loading", locked);
+
   }
   function resetPanel(name, title, detail) {
     const panel = $("#" + name + "-panel");
@@ -83,8 +83,10 @@
   async function refresh() {
     if (checking) return;
     checking = true; updateControls();
+    const requestedGeneration=generation;
     const values = await Promise.allSettled([api("/api/health"), api("/api/state")]);
     try {
+      if (requestedGeneration!==generation) return;
       health = values[0].status === "fulfilled" ? values[0].value : null;
       labState = values[1].status === "fulfilled" ? values[1].value : null;
       if (health?.source !== "live" || labState?.source !== "live") {
@@ -163,7 +165,7 @@
       strong.textContent = !run.consistent ? "Mode đổi trong lúc đo" : result.http.status === 200 ? "Chưa có preview hợp lệ" : result.http.attempted ? "Không tải được website" : "Dừng trước bước HTTP";
       p.textContent = !run.consistent ? "Kết quả được giữ để đối chiếu; cần chạy lại trong mode ổn định." : result.dns.rcode === "SERVFAIL" ? "Resolver trả SERVFAIL. Xem log xác thực và đối chiếu chữ ký để xác định nguyên nhân." : result.http.error || result.dns.error || result.stop_reason || "Xem bằng chứng để xác định nơi dừng.";
       const why = document.createElement("button"); why.textContent = "Xem vì sao";
-      why.addEventListener("click", () => { $("#evidence").open = true; $("#evidence summary").focus(); });
+      why.addEventListener("click", () => { $("#evidence").open = true; $("#evidence > summary").focus(); });
       box.append(strong,p,why); body.append(box);
     }
   }
@@ -185,38 +187,166 @@
     notice(incomplete ? "Đã lưu phép đo nhưng chưa đủ kết luận. Xem lỗi và bằng chứng từng nhánh." : "Đã nhận kết quả DNS → HTTP thật từ lab và đối chiếu access log.", incomplete);
     updateControls();
   }
-  async function start() {
-    if ($("#run").disabled) return;
-    busy = true; operationError = null; clearResult(); $("#evidence").open = false;
-    $("#run-meta").textContent = "Đang chuẩn bị kịch bản và xóa cache";
-    notice("Đang đổi mode và flush hai resolver. Đóng tab không dừng tác vụ trong lab.");
-    try {
-      const scenario = await api("/api/scenario", {action: selected()}, 130000);
-      if (scenario.source !== "live" || !scenario.ready_for_run) throw new APIError("Kịch bản chưa sẵn sàng.", "NOT_READY");
-      $("#lab-status").textContent = `Dữ liệu thật · Relay: ${scenario.actual_mode === "attack" ? "can thiệp" : "giữ nguyên"}`;
-      $("#relay-node").classList.toggle("tampered", scenario.actual_mode === "attack");
-      $("#relay-label").textContent = scenario.actual_mode === "attack" ? "Đang bật sửa phản hồi" : "Chuyển tiếp phản hồi";
-      $("#run-meta").textContent = "Đang truy vấn DNS và truy cập HTTP";
-      names.forEach(name => resetPanel(name, "Đang đo", "Máy khách đang hỏi resolver và quyết định bước HTTP."));
-      notice("Đang chạy DNS → HTTP thật. Không đổi kịch bản trong lúc đo.");
-      showResult(await api("/api/run", {}, 130000));
-    } catch (error) {
-      clearResult();
-      names.forEach(name => resetPanel(name,"Không có kết quả mới", "Xem trạng thái lab rồi thử lại."));
-      $("#run-meta").textContent = "Không có phép đo mới được xác nhận";
-      $("#route-summary").textContent = "Chưa đủ dữ liệu DNS và HTTP để kết luận. Không dùng lại trang cũ.";
-      uncertain = error.code === "CONNECTION_UNKNOWN";
-      operationError = error.message + (uncertain ? " Bấm Kiểm tra lab; có thể xem lần chạy gần nhất khi tác vụ kết thúc." : "");
-      notice(operationError, true);
-    } finally {
-      busy = false; updateControls();
-      // Reconcile without replacing the concrete error message with an idle message.
-      const savedNotice = $("#notice").textContent, savedError = $("#notice").classList.contains("error");
-      await refresh();
-      if (!current && health?.ready && !labState?.busy) notice(savedNotice, savedError);
+  // All progress is keyed by the backend sequence; reloading replays state without pulses.
+  let activeJob = null, cursor = 0, liveVersion = 0;
+  const seenEvents = new Set(), pulseFrames = new Map();
+  const storage = {
+    get(key) { try { return sessionStorage.getItem("dnssec-" + key); } catch { return null; } },
+    set(key, value) { try { if (value === null) sessionStorage.removeItem("dnssec-" + key); else sessionStorage.setItem("dnssec-" + key, value); } catch {} },
+  };
+  const labels = {"job.accepted":"Tác vụ được nhận", "mode.changed":"Đã đổi chế độ relay", "cache.flushed":"Đã xóa cache", "dns.started":"Bắt đầu hỏi DNS", "dns.response":"Đã nhận phản hồi DNS", "dns.error":"Lỗi / timeout DNS", "validation.observed":"Trạng thái từ resolver", "http.skipped":"Bỏ qua HTTP", "http.connecting":"Đang kết nối HTTP", "http.connected":"TCP đã kết nối website", "http.request_sent":"Đã gửi HTTP request", "http.response":"Đã nhận HTTP response", "http.error":"Lỗi HTTP", "http.finished":"Kết thúc HTTP", "branch.completed":"Nhánh đã kết thúc", "proof.started":"Bắt đầu đối chiếu A / RRSIG", "proof.observed":"Đã thu bằng chứng A / RRSIG", "proof.unavailable":"Không thu được bằng chứng bổ sung", "evidence.saved":"Đã lưu evidence", "job.completed":"Đã hoàn tất phép đo", "job.failed":"Tác vụ thất bại"};
+  function motionEnabled() { return document.documentElement.dataset.motion !== "off" && !matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  function stopPulses() {
+    pulseFrames.forEach((frame, dot) => { cancelAnimationFrame(frame); dot.remove(); }); pulseFrames.clear();
+  }
+  new MutationObserver(() => { if (!motionEnabled()) stopPulses(); }).observe(document.documentElement, {attributes:true,attributeFilter:["data-motion"]});
+  matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", () => { if (!motionEnabled()) stopPulses(); });
+  function pulse(id, reverse) {
+    const path = document.getElementById(id);
+    if (!path || !motionEnabled()) return;
+    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    dot.setAttribute("r", "4"); dot.setAttribute("fill", "#3157FF"); dot.setAttribute("aria-hidden", "true");
+    path.ownerSVGElement.append(dot);
+    const length = path.getTotalLength(), began = performance.now();
+    const tick = time => {
+      const fraction = Math.min(1,(time-began)/350), point = path.getPointAtLength(length * (reverse ? 1-fraction : fraction));
+      dot.setAttribute("cx",point.x); dot.setAttribute("cy",point.y);
+      if (fraction === 1) { dot.remove(); pulseFrames.delete(dot); }
+      else pulseFrames.set(dot,requestAnimationFrame(tick));
+    };
+    pulseFrames.set(dot,requestAnimationFrame(tick));
+  }
+  function resetProgress() {
+    liveVersion++; cursor = 0; seenEvents.clear(); stopPulses();
+    $("#event-timeline").replaceChildren(); $("#timeline-status").textContent = "Chờ sự kiện";
+    $("#recovery-comparison").hidden = true;
+    for (const name of names) {
+      $("#resolver-"+name).dataset.state = "idle";
+      $("#http-"+name).classList.remove("connected");
+      $("#http-"+name+"-label").textContent = name+" · chưa kết nối HTTP";
+    }
+    document.querySelectorAll('.validation-steps span').forEach(el=>el.classList.remove('observed'));
+    $("#validation-received").textContent = "Nhận DNS: chờ";
+    $("#validation-resolver").textContent = "AD / SERVFAIL: chờ";
+    $("#validation-proof").textContent = "A / RRSIG / log: chờ";
+  }
+  function consumeEvents(events, replay = false) {
+    for (const e of events) {
+      if (seenEvents.has(e.sequence)) continue;
+      seenEvents.add(e.sequence);
+      const item = document.createElement("li"), detail = document.createElement("details"), summary = document.createElement("summary"), raw = document.createElement("pre");
+      const stamp = new Date(e.timestamp).toLocaleTimeString("vi-VN", {hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit",fractionalSecondDigits:3});
+      summary.textContent = `${String(e.sequence).padStart(2,"0")} · ${stamp} · ${e.branch || "điều phối"} · ${labels[e.kind] || e.kind}`;
+      raw.textContent = JSON.stringify(e,null,2); detail.append(summary,raw); item.append(detail); item.dataset.kind=e.kind;
+      $("#event-timeline").append(item);
+      $("#timeline-status").textContent = `${seenEvents.size} mốc · ${e.run_id}`;
+      const branch = names.includes(e.branch) ? e.branch : null, data = e.data || {};
+      if (branch==='secure' && ['dns.response','dns.error'].includes(e.kind)) $("#validation-received").classList.add('observed');
+      if (e.kind==='validation.observed') $("#validation-resolver").classList.add('observed');
+      if (['proof.started','proof.observed','proof.unavailable','evidence.saved'].includes(e.kind)) $("#validation-proof").classList.add('observed');
+      if (branch) {
+        const node = $("#resolver-"+branch);
+        if (e.kind === "dns.started") { node.dataset.state="processing"; if (!replay) pulse("dns-"+branch,false); }
+        if (e.kind === "dns.response") {
+          node.dataset.state = data.rcode === "SERVFAIL" ? "rejected" : data.rcode === "NOERROR" ? (branch === "secure" && data.ad ? "validated" : "response") : "error";
+          if (!replay) pulse("dns-"+branch,true);
+          if (branch === "secure") $("#validation-received").textContent="Nhận DNS: "+(data.rcode || "phản hồi");
+        }
+        if (e.kind === "dns.error") {
+          node.dataset.state="error";
+          if (branch === "secure") { $("#validation-received").textContent="Nhận DNS: lỗi / timeout"; $("#validation-resolver").textContent="AD / SERVFAIL: chưa biết"; }
+        }
+        if (e.kind === "validation.observed") $("#validation-resolver").textContent=`Resolver: ${data.rcode || "—"} · AD=${data.ad ? 1 : 0}`;
+        if (e.kind === "http.connected") {
+          $("#http-"+branch).classList.add("connected");
+          $("#http-"+branch+"-label").textContent=`${branch} → ${data.ip === "172.30.53.80" ? "web-good · .80" : data.ip === "172.30.53.90" ? "web-fake · .90" : data.ip} · TCP kết nối`;
+          if (!replay) pulse("http-"+branch,false);
+        }
+        if (e.kind === "http.response") $("#http-"+branch+"-label").textContent += ` · HTTP ${data.status}`;
+        if (e.kind === "http.error") $("#http-"+branch+"-label").textContent += " · lỗi HTTP";
+        if (e.kind === "http.skipped") $("#http-"+branch+"-label").textContent=branch+" · bỏ qua HTTP";
+      }
+      if (e.kind === "mode.changed") {
+        $("#relay-node").classList.toggle("tampered",data.attack === true);
+        $("#relay-label").textContent=data.attack ? "Đang bật sửa phản hồi" : "Chuyển tiếp phản hồi";
+        $("#lab-status").textContent="Dữ liệu thật · Relay: "+(data.attack ? "can thiệp" : "giữ nguyên");
+      }
+      if (e.kind === "proof.started") $("#validation-proof").textContent="A / RRSIG / log: đang thu";
+      if (e.kind === "proof.observed") $("#validation-proof").textContent="A / RRSIG: đã thu · xem evidence";
+      if (e.kind === "proof.unavailable") $("#validation-proof").textContent="A / RRSIG: chưa đủ dữ liệu";
+      if (e.kind === "evidence.saved") $("#validation-proof").textContent=data.complete ? "A / RRSIG / log: đã lưu, xem evidence" : "Evidence đã lưu · có dữ liệu chưa thu được";
     }
   }
-  $("#run").addEventListener("click", start);
+  async function compareRecovery(run, action) {
+    if (action === "attack" && run.consistent && run.scenario_before?.attack === true) storage.set("attack-run",run.run_id);
+    if (action !== "recovery") return;
+    const version = liveVersion, oldID = storage.get("attack-run");
+    $("#recovery-comparison").hidden=false; $("#recovery-table").replaceChildren();
+    $("#recovery-note").textContent=oldID ? "Đang đọc lần can thiệp gần nhất trong phiên này…" : `Đã đo mới ${run.run_id}. Chưa có lần can thiệp trong phiên này để đối chứng.`;
+    if (!oldID) return;
+    try {
+      const old = await api("/api/runs/"+encodeURIComponent(oldID)); validateResult(old);
+      if (version !== liveVersion) return;
+      $("#recovery-note").textContent=`Can thiệp: ${old.run_id} → Khôi phục: ${run.run_id}. Đây là hai phép đo riêng; đối chiếu DNS, HTTP và site đích.`;
+      const table=document.createElement("table"), head=document.createElement("tr");
+      for (const text of ["Nhánh / phép đo","IP từ DNS","AD","HTTP","Site đích"]) { const th=document.createElement("th"); th.textContent=text; head.append(th); }
+      const thead=document.createElement("thead"), tbody=document.createElement("tbody"); thead.append(head);
+      for (const name of names) for (const [label,measure] of [["Can thiệp",old],["Khôi phục",run]]) {
+        const r=measure.results[name], tr=document.createElement("tr");
+        for (const value of [name+" / "+label,r.dns.answers.join(", ")||"—",r.dns.ad===null ? "—" : r.dns.ad ? "1" : "0",r.http.attempted ? r.http.status ?? "Lỗi" : "Bỏ qua",r.http.site_id||"—"]) { const td=document.createElement("td");td.textContent=value;tr.append(td); }
+        tbody.append(tr);
+      }
+      table.append(thead,tbody); $("#recovery-table").append(table);
+    } catch (error) { if (version === liveVersion) $("#recovery-note").textContent=`Đã đo mới ${run.run_id}; không đọc được đối chứng ${oldID}: ${error.message}`; }
+  }
+  async function followJob(jobID, replay = false) {
+    activeJob=jobID; storage.set("active-job",jobID);
+    const version=liveVersion;
+    let retries=0;
+    while (version === liveVersion) {
+      let job;
+      try { job=await api(`/api/jobs/${encodeURIComponent(jobID)}?after=${cursor}`); retries=0; }
+      catch (error) {
+        if (error.code !== "CONNECTION_UNKNOWN" || ++retries>8) throw error;
+        notice("Mất kết nối tiến độ; đang nối lại cùng tác vụ, không gửi lệnh chạy mới.",true);
+        await new Promise(resolve=>setTimeout(resolve,1000)); continue;
+      }
+      if (version !== liveVersion) return;
+      if (job.job_id!==jobID || !Array.isArray(job.events)) throw new APIError("Tiến độ không khớp tác vụ.","INVALID_JOB");
+      if (["baseline","attack","recovery"].includes(job.action)) document.querySelector(`input[value="${job.action}"]`).checked=true;
+      consumeEvents(job.events,replay); replay=false; cursor=job.cursor;
+      $("#run-meta").textContent=`${job.run_id} · ${job.status === "running" ? "đang đo" : job.status}`;
+      if (job.status === "completed") {
+        if (job.result_url!==`/api/runs/${job.run_id}`) throw new APIError("Đường dẫn kết quả không hợp lệ.","INVALID_JOB");
+        const result=await api(job.result_url); if (version !== liveVersion) return;
+        showResult(result); await compareRecovery(result,job.action);
+        storage.set("active-job",null); storage.set("last-job",jobID); activeJob=null; return;
+      }
+      if (job.status !== "running") {
+        storage.set("active-job",null); activeJob=null;
+        if (job.result_url===`/api/runs/${job.run_id}`) showResult(await api(job.result_url));
+        throw new APIError(job.error?.message || "Tác vụ chưa hoàn tất.",job.error?.code || "JOB_FAILED");
+      }
+      await new Promise(resolve=>setTimeout(resolve,400));
+    }
+  }
+  async function start(resumeID = null) {
+    if (!resumeID && $("#run").disabled) return;
+    busy=true; operationError=null; clearResult(); resetProgress(); $("#evidence").open=false;
+    $("#run-meta").textContent=resumeID ? "Đang đọc lại cùng tác vụ" : "Đang chuẩn bị kịch bản và xóa cache";
+    notice("Theo dõi các mốc thực từ worker. Đóng tab không dừng tác vụ trong lab.");
+    try {
+      const jobID=resumeID || (await api("/api/jobs",{action:selected()},15000)).job_id;
+      await followJob(jobID,Boolean(resumeID));
+    } catch (error) {
+      if (!current) names.forEach(name=>resetPanel(name,"Không có kết quả mới","Xem timeline và kiểm tra lab trước khi thử lại."));
+      $("#run-meta").textContent="Chưa có phép đo mới được xác nhận";
+      uncertain=error.code==="CONNECTION_UNKNOWN";
+      operationError=error.message+(uncertain ? " Tác vụ có thể vẫn chạy; tải lại để nối lại cùng định danh." : "");
+      notice(operationError,true);
+    } finally { busy=false; updateControls(); await refresh(); if(operationError) notice(operationError,true); }
+  }
+  $("#run").addEventListener("click", () => start());
   $("#refresh").addEventListener("click", refresh);
   document.querySelectorAll("input[name=scenario]").forEach(el => el.addEventListener("change", () => {
     operationError = null;
@@ -244,7 +374,12 @@
     const runID = labState.last_run_id;
     busy = true; clearResult();
     try {
-      showResult(await api("/api/runs/" + encodeURIComponent(runID)));
+      const saved=await api("/api/runs/" + encodeURIComponent(runID));
+      resetProgress(); showResult(saved);
+      if (saved.job_id) {
+        const version=liveVersion, job=await api("/api/jobs/"+encodeURIComponent(saved.job_id));
+        if (version===liveVersion && job.run_id===saved.run_id) consumeEvents(job.events,true);
+      }
       notice("Đang xem lại phép đo đã lưu " + runID + "; chưa thực hiện truy vấn mới.");
       if (current.scenario_revision !== labState.revision) markStale("Mode hiện tại khác lần đo đã lưu.");
     } catch (error) { notice(error.message, true); }
@@ -263,7 +398,8 @@
     setTimeout(() => URL.revokeObjectURL(url),1000);
   });
   names.forEach(name => resetPanel(name,"Chưa có kết quả", "Chọn kịch bản rồi bấm Truy vấn và truy cập."));
-  refresh();
+  const rememberedJob=storage.get("active-job") || storage.get("last-job");
+  if (rememberedJob) start(rememberedJob); else refresh();
   // One poll at a time; no synthetic data or fallback to mock when API is down.
-  setInterval(() => { if (!document.hidden) refresh(); }, 5000);
+  setInterval(() => { if (!document.hidden && !busy) refresh(); }, 5000);
 })();

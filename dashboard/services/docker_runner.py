@@ -98,3 +98,7 @@ class DockerRunner:
     def dns_logs(self, since):
         return self.command(["logs", "--no-color", "--timestamps", "--since", since,
                              "--tail", "200", "secure", "tamper"], timeout=10)
+
+    def compare_events(self, run_id, on_event):
+        from dashboard.services.worker_stream import stream_compare
+        return stream_compare(run_id, on_event)
