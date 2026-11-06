@@ -20,10 +20,11 @@ class LabService:
         self.meta_lock = threading.Lock()
         self.busy, self.task, self.last_error = False, None, None
         self.prepared = None
+        self.last_run_id = None
 
     def state(self):
         with self.meta_lock:
-            info = {"busy": self.busy, "last_task": deepcopy(self.task), "last_error": deepcopy(self.last_error)}
+            info = {"busy": self.busy, "last_task": deepcopy(self.task), "last_error": deepcopy(self.last_error), "last_run_id": self.last_run_id}
             prepared = deepcopy(self.prepared)
         try:
             snapshot = self.runner.snapshot()
@@ -146,6 +147,8 @@ class LabService:
                     or (not measured["http"]["attempted"] and corroboration[branch]["observed_request_count"])):
                     measured["interpretation"] = "inconclusive"
             self.store.save(run_id, result, worker, matching, context)
+            with self.meta_lock:
+                self.last_run_id = run_id
             return result
         return self.exclusive("run", operation)
 

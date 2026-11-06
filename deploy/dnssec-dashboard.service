@@ -1,0 +1,20 @@
+[Unit]
+Description=DNSSEC dashboard via Gunicorn
+Requires=dnssec-lab.service
+After=dnssec-lab.service
+
+[Service]
+User=charlotte
+SupplementaryGroups=docker
+WorkingDirectory=/home/charlotte/apps/dnssec
+EnvironmentFile=/etc/dnssec/dashboard.env
+ExecStart=/home/charlotte/apps/dnssec/.venv/bin/gunicorn --config deploy/gunicorn.conf.py dashboard.wsgi:app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=190
+KillMode=mixed
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

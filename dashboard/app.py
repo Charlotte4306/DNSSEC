@@ -1,4 +1,4 @@
-"""Host-side API only. Start one process; UI integration stays on dashboard-layout."""
+"""Local DNSSEC dashboard and API. Start one process without a reloader."""
 import argparse
 from contextlib import contextmanager
 import os
@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, request, render_template
 from werkzeug.exceptions import HTTPException
 from dashboard.config import EVIDENCE_ROOT, REPO_ROOT, TARGET
 from dashboard.services.docker_runner import APIError, DockerRunner
@@ -18,7 +18,7 @@ from dashboard.services.scenario_service import LabService
 
 
 def create_app(runner=None, evidence_root=None):
-    app = Flask(__name__, static_folder=None)
+    app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config.update(MAX_CONTENT_LENGTH=4096, JSON_SORT_KEYS=False)
     service = LabService(runner or DockerRunner(), EvidenceStore(evidence_root or EVIDENCE_ROOT))
     app.extensions["lab"] = service
@@ -65,8 +65,7 @@ def create_app(runner=None, evidence_root=None):
 
     @app.get("/")
     def index():
-        return jsonify(service="DNSSEC lab API", source="live", ui_connected=False,
-                       note="Frontend được nối trên feature/dashboard-layout.", endpoints=["/api/health", "/api/state"])
+        return render_template("index.html")
 
     @app.get("/api/health")
     def health():

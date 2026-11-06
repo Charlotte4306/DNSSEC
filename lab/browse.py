@@ -14,12 +14,18 @@ def validate_run_id(run_id):
     return run_id
 
 
-def browse(name="www.demo.test", run_id=None, resolver="authority"):
+def browse(name="www.demo.test", run_id=None, resolver="authority", on_event=None):
     if name not in NAMES or resolver not in ["authority", "plain", "secure"]:
         raise ValueError("Unknown lab name or resolver")
     run_id = validate_run_id(run_id or str(uuid.uuid4()))
     started = datetime.now(timezone.utc).isoformat()
+    def emit(kind, data):
+        if on_event is not None: on_event(kind, data)
+    emit("dns.started", {"name": name, "server": SERVERS[resolver]})
     dns = probe(name, server=resolver)
+    emit("dns.error" if dns["error"] else "dns.response", {key: dns.get(key) for key in ["rcode", "ad", "answers", "error", "elapsed_ms"]})
+    if resolver == "secure" and not dns["error"]:
+        emit("validation.observed", {"rcode": dns["rcode"], "ad": dns["ad"], "source": "resolver_response_not_internal_crypto_steps"})
     result = {"run_id": run_id, "branch_id": resolver, "resolver": resolver,
               "requested_at": started, "stage": "dns_to_http", "dns": dns,
               "http": {"attempted": False, "request_sent": False, "connected_ip": None,
@@ -37,7 +43,9 @@ def browse(name="www.demo.test", run_id=None, resolver="authority"):
     elif len(dns["answers"]) != 1 or dns["answers"][0] not in ALLOWED_IPS:
         result["stop_reason"] = "DNS_ANSWER_NOT_SINGLE_ALLOWED_IPV4"
     else:
-        measured = visit(dns["answers"][0], run_id, resolver, host=name)
+        options = {"host": name}
+        if on_event is not None: options["on_event"] = emit
+        measured = visit(dns["answers"][0], run_id, resolver, **options)
         result["http"].update(measured["http"])
         http = result["http"]
         if http["error"]:
@@ -52,7 +60,10 @@ def browse(name="www.demo.test", run_id=None, resolver="authority"):
             result["interpretation"] = "validated" if resolver == "secure" else "reached_legitimate_unvalidated"
         else:
             result["stop_reason"] = "UNEXPECTED_SITE_ID"
+    if not result["http"]["attempted"]:
+        emit("http.skipped", {"reason": result["stop_reason"]})
     result["finished_at"] = datetime.now(timezone.utc).isoformat()
+    emit("branch.completed", {"interpretation": result["interpretation"], "stop_reason": result["stop_reason"]})
     return result
 
 
