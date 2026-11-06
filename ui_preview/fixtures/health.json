@@ -1,0 +1,1 @@
+{"ready":true,"services":{"authority":{"health":"healthy","state":"running"},"client":{"health":"","state":"running"},"plain":{"health":"healthy","state":"running"},"secure":{"health":"healthy","state":"running"},"tamper":{"health":"healthy","state":"running"},"web-fake":{"health":"healthy","state":"running"},"web-good":{"health":"healthy","state":"running"}},"source":"live"}

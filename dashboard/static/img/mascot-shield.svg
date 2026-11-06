@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Mascot khiên DNSSEC dễ thương đang vẫy tay">
+  <defs>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bff3ff"/>
+      <stop offset=".55" stop-color="#a8e0ff"/>
+      <stop offset="1" stop-color="#cfe6ff"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="120" cy="214" rx="58" ry="10" fill="#d9c9f0" opacity=".55"/>
+  <path d="M120 20 C120 20 196 40 196 40 C196 40 196 118 168 158 C152 180 120 200 120 200 C120 200 88 180 72 158 C44 118 44 40 44 40 C44 40 120 20 120 20 Z" fill="url(#shield)" stroke="#8fd0f0" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M120 34 C120 34 182 50 182 50 C182 50 182 114 158 148" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".65"/>
+  <rect x="98" y="96" width="44" height="40" rx="12" fill="#fff" stroke="#8fb7d8" stroke-width="4"/>
+  <path d="M106 96 v-9 a14 14 0 0 1 28 0 v-0 a0 0 0 0 0 0 0" fill="none" stroke="#8fb7d8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M108 88 v-6 a12 12 0 0 1 24 0 v6" fill="none" stroke="#8fb7d8" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="110" cy="118" r="6" fill="#7c7c88"/>
+  <circle cx="130" cy="118" r="6" fill="#7c7c88"/>
+  <path d="M112 128 q8 9 16 0" fill="none" stroke="#7c7c88" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="94" cy="128" r="7" fill="#ffc9d6" opacity=".85"/>
+  <circle cx="146" cy="128" r="7" fill="#ffc9d6" opacity=".85"/>
+  <path d="M60 150 q-16 8 -20 24" fill="none" stroke="#8fd0f0" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="38" cy="178" r="11" fill="#fff3c9" stroke="#f2d98a" stroke-width="4"/>
+  <path d="M180 150 q16 6 22 20" fill="none" stroke="#8fd0f0" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="205" cy="174" r="11" fill="#fff3c9" stroke="#f2d98a" stroke-width="4"/>
+  <g fill="#ffd9e6">
+    <path d="M46 62 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3 z"/>
+    <path d="M196 96 l2.4 6.4 6.4 2.4 -6.4 2.4 -2.4 6.4 -2.4 -6.4 -6.4 -2.4 6.4 -2.4 z"/>
+  </g>
+</svg>
