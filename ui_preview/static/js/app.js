@@ -26,7 +26,7 @@
       let value;
       try { value = await response.json(); }
       catch { throw new APIError("API không trả JSON hợp lệ. Hãy mở dashboard bằng Flask.", "INVALID_RESPONSE"); }
-      if (!response.ok && !(path === "/api/health" && value.source === "live" && value.ready === false)) throw new APIError(value.error?.message || `API trả lỗi HTTP ${response.status}.`, value.error?.code || "API_ERROR");
+      if (!response.ok && !(path === "/api/health" && value.source === "mock" && value.ready === false)) throw new APIError(value.error?.message || `API trả lỗi HTTP ${response.status}.`, value.error?.code || "API_ERROR");
       return value;
     } catch (error) {
       if (error instanceof APIError) throw error;
@@ -65,7 +65,7 @@
     $("#proof-result").hidden = true;
     $("#json").textContent = "{}"; $("#copy-status").textContent = "";
     $("#evidence-explanation").textContent = "Chưa có dữ liệu mới.";
-    names.forEach(name => resetPanel(name, "Chưa có kết quả mới", "Chờ lab trả số liệu."));
+    names.forEach(name => resetPanel(name, "Chưa có kết quả mới", "Đang chuẩn bị phép đo từ lab."));
     updateControls();
   }
   function markStale(reason) {
@@ -89,19 +89,19 @@
       if (requestedGeneration!==generation) return;
       health = values[0].status === "fulfilled" ? values[0].value : null;
       labState = values[1].status === "fulfilled" ? values[1].value : null;
-      if (health?.source !== "live" || labState?.source !== "live") {
+      if (health?.source !== "mock" || labState?.source !== "mock") {
         throw new APIError("Chưa nhận được trạng thái live hợp lệ từ API.", "NOT_LIVE");
       }
-      $("#lab-status").textContent = health.ready ? `Dữ liệu thật · Relay: ${labState.actual_mode === "attack" ? "can thiệp" : labState.actual_mode === "normal" ? "giữ nguyên" : "chưa rõ"}` : "Lab chưa sẵn sàng";
+      $("#lab-status").textContent = health.ready ? `Dữ liệu phát lại · Relay: ${labState.actual_mode === "attack" ? "can thiệp" : labState.actual_mode === "normal" ? "giữ nguyên" : "chưa rõ"}` : "Lab chưa sẵn sàng";
       $("#relay-node").classList.toggle("tampered", labState.actual_mode === "attack");
       $("#relay-label").textContent = labState.actual_mode === "attack" ? "Đang bật sửa phản hồi" : labState.actual_mode === "normal" ? "Chuyển tiếp phản hồi" : "Chưa đọc được mode";
       if (uncertain && !labState.busy) uncertain = false;
       if (current && !stale && (!health.ready || labState.revision !== current.scenario_revision)) {
-        markStale("Mode đã đổi hoặc lab chưa sẵn sàng.");
+        markStale("Mode đã đổi hoặc lab chưa sẵn sàng. Truy vấn lại để có kết quả mới.");
       } else if (!busy && labState.busy) {
-        notice("Lab đang xử lý một tác vụ khác.");
+        notice("Lab đang xử lý một tác vụ khác. Đợi tác vụ kết thúc rồi chạy lại.");
       } else if (!busy && !current) {
-        notice(operationError || labState.error?.message || (!health.ready ? "Docker hoặc dịch vụ chưa sẵn sàng." : "Đã kết nối lab."), Boolean(operationError || labState.error || !health.ready));
+        notice(operationError || labState.error?.message || (!health.ready ? "Docker hoặc dịch vụ chưa sẵn sàng. Kiểm tra lab trước khi chạy." : "Đã kết nối lab. Chọn kịch bản rồi bấm Truy vấn và truy cập."), Boolean(operationError || labState.error || !health.ready));
       }
     } catch (error) {
       $("#lab-status").textContent = "Chưa kết nối được lab";
@@ -110,7 +110,7 @@
     } finally { checking = false; updateControls(); }
   }
   function validateResult(data) {
-    if (!data || data.source !== "live" || !/^[A-Za-z0-9_-]{1,80}$/.test(data.run_id || "") || !data.scenario_revision || typeof data.consistent !== "boolean") {
+    if (!data || data.source !== "mock" || !/^[A-Za-z0-9_-]{1,80}$/.test(data.run_id || "") || !data.scenario_revision || typeof data.consistent !== "boolean") {
       throw new APIError("Kết quả thiếu nguồn live hoặc định danh phép đo.", "INVALID_RESULT");
     }
     for (const name of names) {
@@ -182,9 +182,9 @@
       return `${name}: DNS ${r.dns.rcode ?? "lỗi truyền tải"}${r.dns.answers.length ? " / " + r.dns.answers.join(", ") : ""} → ${r.http.attempted ? "HTTP " + (r.http.status ?? "lỗi") : "không HTTP"}`;
     };
     $("#route-summary").textContent = names.map(route).join(". ") + ".";
-    $("#evidence-explanation").textContent = "DNS, HTTP và access log thuộc cùng run_id. Log Unbound/relay đối chiếu theo cửa sổ thời gian; SERVFAIL đơn lẻ chưa kết luận nguyên nhân.";
+    $("#evidence-explanation").textContent = "DNS raw, kết quả HTTP và access log bên dưới thuộc cùng run_id. Log Unbound/relay chỉ đối chiếu theo cửa sổ thời gian. SERVFAIL một mình chưa xác định nguyên nhân; nút Đối chiếu A và RRSIG lấy thêm dữ liệu thật từ authority/relay.";
     const incomplete = !data.consistent || names.some(name => data.results[name].interpretation === "inconclusive");
-    notice(incomplete ? "Đã lưu phép đo nhưng chưa đủ kết luận. Xem lỗi và bằng chứng từng nhánh." : "Đã nhận kết quả DNS → HTTP thật từ lab và đối chiếu access log.", incomplete);
+    notice(incomplete ? "Đã lưu phép đo nhưng chưa đủ kết luận. Xem lỗi và bằng chứng từng nhánh." : "Đã nhận kết quả DNS → HTTP phát lại từ lab và đối chiếu access log.", incomplete);
     updateControls();
   }
   // All progress is keyed by the backend sequence; reloading replays state without pulses.
@@ -239,6 +239,7 @@
       summary.textContent = `${String(e.sequence).padStart(2,"0")} · ${stamp} · ${e.branch || "điều phối"} · ${labels[e.kind] || e.kind}`;
       raw.textContent = JSON.stringify(e,null,2); detail.append(summary,raw); item.append(detail); item.dataset.kind=e.kind;
       $("#event-timeline").append(item);
+      window.dispatchEvent(new CustomEvent("dnssec:event", { detail: e }));
       $("#timeline-status").textContent = `${seenEvents.size} mốc · ${e.run_id}`;
       const branch = names.includes(e.branch) ? e.branch : null, data = e.data || {};
       if (branch==='secure' && ['dns.response','dns.error'].includes(e.kind)) $("#validation-received").classList.add('observed');
@@ -269,7 +270,7 @@
       if (e.kind === "mode.changed") {
         $("#relay-node").classList.toggle("tampered",data.attack === true);
         $("#relay-label").textContent=data.attack ? "Đang bật sửa phản hồi" : "Chuyển tiếp phản hồi";
-        $("#lab-status").textContent="Dữ liệu thật · Relay: "+(data.attack ? "can thiệp" : "giữ nguyên");
+        $("#lab-status").textContent="Dữ liệu phát lại · Relay: "+(data.attack ? "can thiệp" : "giữ nguyên");
       }
       if (e.kind === "proof.started") $("#validation-proof").textContent="A / RRSIG / log: đang thu";
       if (e.kind === "proof.observed") $("#validation-proof").textContent="A / RRSIG: đã thu · xem evidence";
@@ -334,12 +335,12 @@
     if (!resumeID && $("#run").disabled) return;
     busy=true; operationError=null; clearResult(); resetProgress(); $("#evidence").open=false;
     $("#run-meta").textContent=resumeID ? "Đang đọc lại cùng tác vụ" : "Đang chuẩn bị kịch bản và xóa cache";
-    notice("Đang chạy tác vụ.");
+    notice("Theo dõi các mốc thực từ worker. Đóng tab không dừng tác vụ trong lab.");
     try {
       const jobID=resumeID || (await api("/api/jobs",{action:selected()},15000)).job_id;
       await followJob(jobID,Boolean(resumeID));
     } catch (error) {
-      if (!current) names.forEach(name=>resetPanel(name,"Không có kết quả mới","Lab chưa trả số liệu mới."));
+      if (!current) names.forEach(name=>resetPanel(name,"Không có kết quả mới","Xem timeline và kiểm tra lab trước khi thử lại."));
       $("#run-meta").textContent="Chưa có phép đo mới được xác nhận";
       uncertain=error.code==="CONNECTION_UNKNOWN";
       operationError=error.message+(uncertain ? " Tác vụ có thể vẫn chạy; tải lại để nối lại cùng định danh." : "");
@@ -350,16 +351,16 @@
   $("#refresh").addEventListener("click", refresh);
   document.querySelectorAll("input[name=scenario]").forEach(el => el.addEventListener("change", () => {
     operationError = null;
-    if (current) markStale("Kịch bản chọn khác lần đo; relay chưa đổi.");
-    else notice("Kịch bản đã chọn.");
+    if (current) markStale("Bạn đã chọn kịch bản khác; relay chỉ đổi khi bấm chạy.");
+    else notice("Kịch bản đã chọn. Bấm Truy vấn và truy cập để đổi relay, flush cache và đo.");
   }));
   $("#proof").addEventListener("click", async () => {
     if ($("#proof").disabled) return;
     busy = true; updateControls();
     try {
       const value = await api("/api/proof", {}, 130000);
-      if (value.source !== "live" || value.revision !== current.scenario_revision) {
-        markStale("Bằng chứng khác revision lần đo."); return;
+      if (value.source !== "mock" || value.revision !== current.scenario_revision) {
+        markStale("Revision của bằng chứng khác lần đo. Chạy lại để đối chiếu."); return;
       }
       proof = value;
       $("#proof-json").textContent = JSON.stringify(value,null,2);
@@ -380,7 +381,7 @@
         const version=liveVersion, job=await api("/api/jobs/"+encodeURIComponent(saved.job_id));
         if (version===liveVersion && job.run_id===saved.run_id) consumeEvents(job.events,true);
       }
-      notice("Đang xem lại phép đo " + runID + ".");
+      notice("Đang xem lại phép đo đã lưu " + runID + "; chưa thực hiện truy vấn mới.");
       if (current.scenario_revision !== labState.revision) markStale("Mode hiện tại khác lần đo đã lưu.");
     } catch (error) { notice(error.message, true); }
     finally { busy = false; updateControls(); }
@@ -397,7 +398,7 @@
     const link = document.createElement("a"); link.href = url; link.download = current.run_id + ".json"; link.click();
     setTimeout(() => URL.revokeObjectURL(url),1000);
   });
-  names.forEach(name => resetPanel(name,"Chưa có kết quả", "Chờ phép đo đầu tiên."));
+  names.forEach(name => resetPanel(name,"Chưa có kết quả", "Chọn kịch bản rồi bấm Truy vấn và truy cập."));
   const rememberedJob=storage.get("active-job") || storage.get("last-job");
   if (rememberedJob) start(rememberedJob); else refresh();
   // One poll at a time; no synthetic data or fallback to mock when API is down.
