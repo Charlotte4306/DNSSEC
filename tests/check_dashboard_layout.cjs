@@ -109,6 +109,8 @@ async function availablePort() {
       return data;
     };
     await page.evaluate(()=>document.fonts.ready);
+    assert.equal(await page.evaluate(()=>document.fonts.check('800 16px "Nunito"')),true);
+    assert.equal(await page.locator('.kawaii-banner').count(),1);
     assert.equal(await page.evaluate(()=>document.fonts.check('400 16px "Be Vietnam Pro"')),true);
     assert.equal(await page.evaluate(()=>document.fonts.check('400 16px "Xanh Mono"')),true);
     await run('baseline');
@@ -139,6 +141,7 @@ async function availablePort() {
     const headerBottom = await page.locator('.masthead').evaluate(el=>el.getBoundingClientRect().bottom);
     assert.ok(headingTop>=headerBottom,'lab heading is not hidden behind sticky header');
     const panelBottom = await page.locator('#secure-panel').evaluate(el=>el.getBoundingClientRect().bottom);
+    await page.screenshot({path:path.join(out,'dashboard-layout-measured.png')});
     assert.ok(panelBottom<=768, `Results exceed 1366x768 viewport: ${panelBottom}`);
     await page.screenshot({path:path.join(out,'dashboard-live-attack.png'),fullPage:true});
     await page.locator('#lab').evaluate(el=>el.scrollIntoView({behavior:'instant',block:'start'}));
@@ -184,6 +187,9 @@ async function availablePort() {
     await page.frameLocator('#plain-panel iframe').getByRole('heading',{name:/website giả lập/i}).waitFor();
     await page.waitForTimeout(250);
     await page.locator('#lab').screenshot({path:path.join(out,'dashboard-motion-mobile-lab.png'),style:'.masthead,.skip-link{visibility:hidden!important}'});
+    await page.locator('#story').scrollIntoViewIfNeeded();
+    await page.waitForFunction(()=>document.querySelector('#intro-title').classList.contains('seen'));
+    await page.waitForTimeout(1000);
     await page.locator('#story').screenshot({path:path.join(out,'dashboard-motion-mobile-hero.png')});
     await page.setViewportSize({width:1366,height:768});
     // An external mode change is real, not intercepted. Poll must invalidate the old preview.

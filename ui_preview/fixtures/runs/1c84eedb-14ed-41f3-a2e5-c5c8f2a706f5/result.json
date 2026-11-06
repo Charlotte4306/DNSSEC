@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "run_id": "1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5",
+  "target": "www.demo.test",
+  "scenario_before": {
+    "attack": true,
+    "changed_at": "2026-11-01T03:01:47.597458+00:00"
+  },
+  "scenario_after": {
+    "attack": true,
+    "changed_at": "2026-11-01T03:01:47.597458+00:00"
+  },
+  "consistent": true,
+  "results": {
+    "plain": {
+      "run_id": "1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5",
+      "branch_id": "plain",
+      "resolver": "plain",
+      "requested_at": "2026-11-01T03:01:52.499170+00:00",
+      "stage": "dns_to_http",
+      "dns": {
+        "server": "172.30.53.40",
+        "name": "www.demo.test",
+        "type": "A",
+        "transport": "UDP",
+        "rcode": "NOERROR",
+        "ad": false,
+        "aa": false,
+        "answers": [
+          "172.30.53.90"
+        ],
+        "raw": "id 28425\nopcode QUERY\nrcode NOERROR\nflags QR RD RA\nedns 0\neflags DO\npayload 1232\n;QUESTION\nwww.demo.test. IN A\n;ANSWER\nwww.demo.test. 15 IN A 172.30.53.90\nwww.demo.test. 15 IN RRSIG A 13 3 15 20261201025858 20261101015858 43602 demo.test. YikjN0cQobbJkhKJqOn8odKS9Gokrroz 0YfhoCvM5bIx2Uk1ToffA+AFZxUglbVa POIWgrPjAauvl1oX4p0FrQ==\n;AUTHORITY\n;ADDITIONAL",
+        "error": null,
+        "elapsed_ms": 8.78
+      },
+      "http": {
+        "attempted": true,
+        "request_sent": true,
+        "connected_ip": "172.30.53.90",
+        "status": 200,
+        "site_id": "training-fake",
+        "body_sha256": "fbe137365d49d13ae09790aa7d69b838f42555813f9f5a25f84caaa867ddeb77",
+        "content_type": "text/html; charset=utf-8",
+        "elapsed_ms": 1.62,
+        "error": null,
+        "preview_url": "/api/runs/1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5/preview/plain",
+        "body_available": true,
+        "body_hash": "fbe137365d49d13ae09790aa7d69b838f42555813f9f5a25f84caaa867ddeb77"
+      },
+      "stop_reason": null,
+      "interpretation": "accepted_fake",
+      "finished_at": "2026-11-01T03:01:52.509655+00:00",
+      "scenario_revision": "2026-11-01T03:01:47.597458+00:00",
+      "evidence": {
+        "matched_log_ids": [
+          "8641dc6a54634efa5eb5e93baf7943cbb906ffcff66a091a64689724cf198367"
+        ],
+        "observed_request_count": 1,
+        "http_corroborated": true,
+        "no_http_observed": false,
+        "dns_file": "1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5/worker.json"
+      },
+      "observed_interpretation": "accepted_fake"
+    },
+    "secure": {
+      "run_id": "1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5",
+      "branch_id": "secure",
+      "resolver": "secure",
+      "requested_at": "2026-11-01T03:01:52.499721+00:00",
+      "stage": "dns_to_http",
+      "dns": {
+        "server": "172.30.53.30",
+        "name": "www.demo.test",
+        "type": "A",
+        "transport": "UDP",
+        "rcode": "SERVFAIL",
+        "ad": false,
+        "aa": false,
+        "answers": [],
+        "raw": "id 42504\nopcode QUERY\nrcode SERVFAIL\nflags QR RD RA\nedns 0\neflags DO\npayload 1232\noption EDE 6 (DNSSEC Bogus): validation failure <www.demo.test. A IN>: signature crypto failed from 172.30.53.20\n;QUESTION\nwww.demo.test. IN A\n;ANSWER\n;AUTHORITY\n;ADDITIONAL",
+        "error": null,
+        "elapsed_ms": 20.89
+      },
+      "http": {
+        "attempted": false,
+        "request_sent": false,
+        "connected_ip": null,
+        "status": null,
+        "site_id": null,
+        "body_sha256": null,
+        "content_type": null,
+        "elapsed_ms": null,
+        "error": null,
+        "preview_url": null,
+        "body_available": false,
+        "body_hash": null
+      },
+      "stop_reason": "DNS_RCODE_SERVFAIL",
+      "interpretation": "blocked",
+      "finished_at": "2026-11-01T03:01:52.520636+00:00",
+      "scenario_revision": "2026-11-01T03:01:47.597458+00:00",
+      "evidence": {
+        "matched_log_ids": [],
+        "observed_request_count": 0,
+        "http_corroborated": false,
+        "no_http_observed": true,
+        "dns_file": "1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5/worker.json"
+      },
+      "observed_interpretation": "blocked"
+    }
+  },
+  "source": "live",
+  "requested_at": "2026-11-01T03:01:51.394220+00:00",
+  "finished_at": "2026-11-01T03:01:56.898957+00:00",
+  "scenario_revision": "2026-11-01T03:01:47.597458+00:00",
+  "evidence": {
+    "http_access": [
+      {
+        "time": "2026-11-01T03:01:52.509363+00:00",
+        "site_id": "training-fake",
+        "client_ip": "172.30.53.2",
+        "method": "GET",
+        "host": "www.demo.test",
+        "path": "/",
+        "status": 200,
+        "run_id": "1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5",
+        "branch_id": "plain"
+      }
+    ],
+    "proof": {
+      "source": "live",
+      "requested_at": "2026-11-01T03:01:53.648773+00:00",
+      "data": {
+        "records": {
+          "authority": {
+            "server": "172.30.53.10",
+            "name": "www.demo.test",
+            "type": "A",
+            "transport": "UDP",
+            "rcode": "NOERROR",
+            "ad": false,
+            "aa": true,
+            "answers": [
+              "172.30.53.80"
+            ],
+            "raw": "id 57905\nopcode QUERY\nrcode NOERROR\nflags QR AA RD\nedns 0\neflags DO\npayload 1232\n;QUESTION\nwww.demo.test. IN A\n;ANSWER\nwww.demo.test. 15 IN A 172.30.53.80\nwww.demo.test. 15 IN RRSIG A 13 3 15 20261201025858 20261101015858 43602 demo.test. YikjN0cQobbJkhKJqOn8odKS9Gokrroz 0YfhoCvM5bIx2Uk1ToffA+AFZxUglbVa POIWgrPjAauvl1oX4p0FrQ==\n;AUTHORITY\n;ADDITIONAL",
+            "error": null,
+            "elapsed_ms": 3.0
+          },
+          "tamper": {
+            "server": "172.30.53.20",
+            "name": "www.demo.test",
+            "type": "A",
+            "transport": "UDP",
+            "rcode": "NOERROR",
+            "ad": false,
+            "aa": true,
+            "answers": [
+              "172.30.53.90"
+            ],
+            "raw": "id 30486\nopcode QUERY\nrcode NOERROR\nflags QR AA RD\nedns 0\neflags DO\npayload 1232\n;QUESTION\nwww.demo.test. IN A\n;ANSWER\nwww.demo.test. 15 IN A 172.30.53.90\nwww.demo.test. 15 IN RRSIG A 13 3 15 20261201025858 20261101015858 43602 demo.test. YikjN0cQobbJkhKJqOn8odKS9Gokrroz 0YfhoCvM5bIx2Uk1ToffA+AFZxUglbVa POIWgrPjAauvl1oX4p0FrQ==\n;AUTHORITY\n;ADDITIONAL",
+            "error": null,
+            "elapsed_ms": 2.53
+          }
+        },
+        "rrsig_unchanged": true,
+        "rrsig_sha256": "45ff48dfba215ae3ff3df3b8121eb48e5f685ee37bcc7f004a0afe76b2166ac7"
+      },
+      "revision": "2026-11-01T03:01:47.597458+00:00",
+      "consistent_with_run": true
+    },
+    "collection_errors": [],
+    "dns_context": "secure-1  | 2026-11-01T03:01:52.503851219Z Nov 01 03:01:52 unbound[1:0] info: generate keytag query _ta-892a.demo.test. NULL IN\nsecure-1  | 2026-11-01T03:01:52.520242306Z Nov 01 03:01:52 unbound[1:0] info: validation failure <www.demo.test. A IN>: signature crypto failed from 172.30.53.20\nsecure-1  | 2026-11-01T03:01:52.547207839Z Nov 01 03:01:52 unbound[1:0] info: generate keytag query _ta-892a.demo.test. NULL IN\ntamper-1  | 2026-11-01T03:01:52.197252011Z {\"event\": \"PASS\", \"name\": \"demo.test.\", \"type\": \"DNSKEY\", \"signature_retained\": false}\ntamper-1  | 2026-11-01T03:01:52.503275230Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:52.503945930Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:52.505220098Z {\"event\": \"PASS\", \"name\": \"demo.test.\", \"type\": \"DNSKEY\", \"signature_retained\": false}\ntamper-1  | 2026-11-01T03:01:52.507730272Z {\"event\": \"PASS\", \"name\": \"_ta-892a.demo.test.\", \"type\": \"NULL\", \"signature_retained\": false}\ntamper-1  | 2026-11-01T03:01:52.509053505Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:52.511377244Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:52.513821464Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:52.516305998Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:52.519294135Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:54.508594213Z {\"event\": \"TAMPER\", \"name\": \"www.demo.test.\", \"type\": \"A\", \"signature_retained\": true}\ntamper-1  | 2026-11-01T03:01:55.247723592Z {\"event\": \"PASS\", \"name\": \"demo.test.\", \"type\": \"DNSKEY\", \"signature_retained\": false}\n",
+    "dns_context_correlation": "time_window_only_not_exact_run_id",
+    "log_window_start": "2026-11-01T03:01:51.394220+00:00",
+    "note": "SERVFAIL không tự chứng minh lỗi chữ ký; log DNS chỉ là ngữ cảnh theo thời gian.",
+    "integrity_url": "/api/runs/1c84eedb-14ed-41f3-a2e5-c5c8f2a706f5/integrity"
+  }
+}

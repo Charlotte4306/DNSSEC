@@ -8,7 +8,7 @@ docker compose up -d --no-deps client
 .venv/Scripts/python.exe dashboard/app.py --port 18766
 ```
 
-Mở http://127.0.0.1:18766/#lab. Dashboard cần một tiến trình điều phối; không chạy nhiều API worker độc lập. Lock process có sẵn bảo vệ lần khởi chạy bằng CLI. Bản này chưa được đẩy lên VPS.
+Mở http://127.0.0.1:18766/#lab. Dashboard cần một tiến trình điều phối; không chạy nhiều API worker độc lập. Lock process có sẵn bảo vệ lần khởi chạy bằng CLI. Cấu hình triển khai Azure nằm trong deploy/. Dashboard kawaii vẫn dùng các phép đo live và hợp đồng sự kiện này.
 
 ## Worker và hợp đồng sự kiện
 
