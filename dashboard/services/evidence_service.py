@@ -57,8 +57,8 @@ def sanitize_preview(body, site_id):
     color = "#8c2630" if site_id == "training-fake" else "#20533b"
     return ('<!doctype html><html lang="vi"><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<style>body{{font:16px "Segoe UI",sans-serif;padding:18px;color:{color};background:#f8fafc}}'
-            'h1{font-size:24px}p{line-height:1.5}</style><body>' + fragment + '</body></html>')
+            f'<style>body{{font:13px "Segoe UI",sans-serif;padding:6px 12px;margin:0;color:{color};background:#f8fafc}}'
+            'h1{font-size:18px;margin:4px 0}p{line-height:1.4;margin:4px 0}</style><body>' + fragment + '</body></html>')
 
 
 class EvidenceStore:

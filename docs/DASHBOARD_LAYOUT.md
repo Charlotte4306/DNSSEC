@@ -144,3 +144,10 @@ API mất kết nối, không có lỗi JavaScript hoặc request mạng ngoài.
 quả vừa 1366×768; mobile 390×844 không tràn ngang. Đã mở ảnh desktop/mobile để
 review; evidence/log dài cần mở rộng hoặc cuộn. Sau test đã khôi phục mode và
 flush hai resolver. Kiểm thử cuối qua máy chiếu và trình đọc màn hình chưa chạy.
+
+## Bản sửa motion theo tham khảo
+
+Trang hiện có thêm phần giới thiệu cuộn và khám phá kịch bản trước vùng lab.
+Menu Vào lab/skip link đi thẳng tới phần điều khiển thật để trình chiếu. Hover
+kịch bản chỉ đổi sơ đồ giải thích, không gửi lệnh đến backend. Chi tiết thiết kế,
+hiệu ứng, reduced motion và các ca đã kiểm tra ở [UI_MOTION.md](UI_MOTION.md).

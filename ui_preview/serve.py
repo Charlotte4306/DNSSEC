@@ -30,7 +30,9 @@ ACTION_MODE = {"baseline": "normal", "recovery": "normal", "attack": "attack"}
 
 
 def load_json(*parts):
-    return json.loads((FIXTURES / Path(*parts)).read_text(encoding="utf-8"))
+    value = json.loads((FIXTURES / Path(*parts)).read_text(encoding="utf-8"))
+    if isinstance(value, dict): value["source"] = "mock"
+    return value
 
 
 class Lab:
@@ -47,7 +49,7 @@ class Lab:
         job = self.jobs["baseline"]
         run = self.runs[job["run_id"]]
         self.state = {
-            "source": "live",
+            "source": "mock",
             "ready_for_run": True,
             "busy": False,
             "active_job_id": None,
@@ -67,7 +69,7 @@ class Lab:
             raise ValueError(action)
         with self.lock:
             if self.running:
-                return self.running
+                return None
             self.state["busy"] = True
             self.running = {"action": action, "job": self.jobs[action], "began": time.monotonic(), "done": False}
             self.state["active_job_id"] = self.jobs[action]["job_id"]
@@ -85,7 +87,7 @@ class Lab:
                         job = stored
                 if job is None:
                     return None
-                return {"job": job, "events": job["events"], "cursor": job["cursor"], "status": "completed"}
+                return {"job": job, "events": [e for e in job["events"] if e["sequence"] > after], "cursor": job["cursor"], "status": "completed"}
             elapsed = (time.monotonic() - self.running["began"]) * 1000
             revealed = min(len(job["events"]), max(1, int(elapsed / REVEAL_MS) + 1))
             finished = revealed == len(job["events"]) and elapsed >= len(job["events"]) * REVEAL_MS + SETTLE_MS
@@ -130,6 +132,9 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def send_file(self, path, content_type=None, extra_headers=()):
+        path = path.resolve()
+        if not path.is_relative_to(ROOT.resolve()):
+            return self.send_json({"error": {"code": "INVALID_PATH", "message": "Tài nguyên nằm ngoài thư mục preview."}}, 403)
         if not path.is_file():
             return self.send_json({"error": {"code": "NOT_FOUND", "message": "Không tìm thấy tài nguyên."}}, 404)
         body = path.read_bytes()
@@ -159,24 +164,31 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/":
                 return self.send_file(ROOT / "index.html", "text/html; charset=utf-8")
             if path.startswith("/static/"):
-                return self.send_file(ROOT / unquote(path).lstrip("/"))
+                target = (ROOT / unquote(path).lstrip("/")).resolve()
+                if not target.is_relative_to((ROOT / "static").resolve()):
+                    return self.send_json({"error": {"code": "INVALID_PATH", "message": "Đường dẫn static không hợp lệ."}}, 403)
+                return self.send_file(target)
             if path == "/api/health":
                 return self.send_json(self.lab.health)
             if path == "/api/state":
                 with self.lab.lock:
-                    return self.send_json({**self.lab.state, "source": "live"})
+                    return self.send_json({**self.lab.state, "source": "mock"})
             if path == "/api/jobs" and method == "POST":
                 action = (self.read_json().get("action") or "").strip()
                 if action not in self.lab.jobs:
                     return self.send_json({"error": {"code": "INVALID_ACTION", "message": f"Kịch bản không có fixture: {action}"}}, 400)
-                return self.send_json({"job_id": self.lab.start_job(action)["job"]["job_id"], "source": "live"})
+                running = self.lab.start_job(action)
+                if running is None:
+                    return self.send_json({"error": {"code": "LAB_BUSY", "message": "Preview đang phát lại một tác vụ."}}, 409)
+                return self.send_json({"job_id": running["job"]["job_id"], "source": "mock"}, 202)
             if path.startswith("/api/jobs/"):
                 after = int((query.get("after") or ["0"])[0])
+                if not 0 <= after <= 256: raise ValueError("Cursor không hợp lệ")
                 job = self.lab.poll_job(unquote(path.rsplit("/", 1)[-1]), after)
                 if job is None:
                     return self.send_json({"error": {"code": "JOB_NOT_FOUND", "message": "Không có tác vụ mock này."}}, 404)
                 record = job["job"]
-                return self.send_json({"source": "live", "job_id": record["job_id"], "run_id": record["run_id"],
+                return self.send_json({"source": "mock", "job_id": record["job_id"], "run_id": record["run_id"],
                                        "action": record["action"], "status": job["status"], "events": job["events"],
                                        "cursor": job["cursor"], "events_sha256": record.get("events_sha256"),
                                        "result_url": record["result_url"], "requested_at": record["requested_at"],
@@ -184,7 +196,7 @@ class Handler(BaseHTTPRequestHandler):
                                        "error": None})
             if path == "/api/proof" and method == "POST":
                 with self.lab.lock:
-                    return self.send_json({"source": "live", "requested_at": datetime.now(timezone.utc).isoformat(),
+                    return self.send_json({"source": "mock", "requested_at": datetime.now(timezone.utc).isoformat(),
                                            "revision": self.lab.state["revision"], "consistent_with_run": True,
                                            "proof": self.lab.proof["data"]})
             if path.startswith("/api/runs/"):
@@ -209,10 +221,15 @@ class Handler(BaseHTTPRequestHandler):
         run_id = parts[0] if parts else None
         if len(parts) == 1:
             run = self.lab.runs.get(run_id)
-            return self.send_json(run) if run else self.send_json({"error": {"code": "RUN_NOT_FOUND", "message": run_id}}, 404)
+            if not run:
+                return self.send_json({"error": {"code": "RUN_NOT_FOUND", "message": run_id}}, 404)
+            with self.lab.lock:
+                task = self.lab.state.get("last_task", {})
+                matched = next(job for job in self.lab.jobs.values() if job["run_id"] == run_id)
+                job_id = task["job_id"] if task.get("run_id") == run_id else matched["job_id"]
+            return self.send_json({**run, "job_id": job_id, "source": "mock"})
         if len(parts) == 2 and parts[1] == "integrity":
-            stored = FIXTURES / "runs" / run_id / "integrity.json"
-            return self.send_file(stored, "application/json; charset=utf-8")
+            return self.send_json({"source": "mock", "run_id": run_id, "verified": False, "status": "preview_not_measured", "note": "Fixture phát lại, không phải kiểm chứng integrity mới."})
         if len(parts) == 3 and parts[1] == "preview" and parts[2] in {"plain", "secure"}:
             return self.send_file(FIXTURES / "runs" / run_id / "preview" / f"{parts[2]}.html",
                                   "text/html; charset=utf-8", [("Content-Security-Policy", PREVIEW_CSP)])

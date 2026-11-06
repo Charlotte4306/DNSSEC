@@ -1,8 +1,8 @@
 # Backend API — DNSSEC Visual Lab
 
 `feature/dashboard-api` triển khai Flask trên host, gọi Docker CLI để chạy worker
-thật trong container client. Nhánh này chưa nối giao diện; trang `/` chỉ mô tả
-dịch vụ API. Layout và tích hợp live cùng nằm trên `feature/dashboard-layout`.
+thật trong container client. Tại mốc API riêng, trang `/` chỉ mô tả dịch vụ. Hiện dashboard đã được nối trên
+`feature/dashboard-layout`: `/` hiển thị giao diện, xem [DASHBOARD_LAYOUT.md](DASHBOARD_LAYOUT.md).
 Không mount Docker socket vào web container.
 
 ## Chạy
@@ -55,7 +55,7 @@ HTTP request tới `.80`; attack có plain tới `.90`, secure SERVFAIL không H
 | Endpoint | Đầu vào | Kết quả |
 |---|---|---|
 | GET `/api/health` | Không | `source: live`, trạng thái bảy dịch vụ; 200 khi running và không unhealthy/starting, 503 nếu chưa sẵn sàng. Không tự truy vấn DNS. |
-| GET `/api/state` | Không | `actual_mode: normal/attack/unknown`, revision từ relay, busy, last_task có run_id khi đo, last_error, ready_for_run. |
+| GET `/api/state` | Không | `actual_mode: normal/attack/unknown`, revision từ relay, busy, last_task có run_id khi đo, last_run_id giữ phép đo gần nhất kể cả sau proof, last_error, ready_for_run. |
 | POST `/api/scenario` | `{"action":"baseline/attack/recovery"}` | Đổi relay, flush plain rồi secure, đọc lại mode; trả các bước đã thành công và revision. |
 | POST `/api/run` | `{}` hoặc `{"target":"www.demo.test"}` | Hai nhánh cùng run_id, source live, revision, DNS/HTTP thực, đối chiếu access log, URL preview. |
 | POST `/api/proof` | `{}` | Đọc A/RRSIG từ authority và relay thật; đối chiếu chữ ký; revision trước/sau phải khớp. |

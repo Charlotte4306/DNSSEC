@@ -20,10 +20,11 @@ class LabService:
         self.meta_lock = threading.Lock()
         self.busy, self.task, self.last_error = False, None, None
         self.prepared = None
+        self.last_run_id = None
 
     def state(self):
         with self.meta_lock:
-            info = {"busy": self.busy, "last_task": deepcopy(self.task), "last_error": deepcopy(self.last_error)}
+            info = {"busy": self.busy, "last_task": deepcopy(self.task), "last_error": deepcopy(self.last_error), "last_run_id": self.last_run_id}
             prepared = deepcopy(self.prepared)
         try:
             snapshot = self.runner.snapshot()
@@ -35,119 +36,136 @@ class LabService:
                         error={"code": exc.code, "message": exc.message})
         return info
 
-    def exclusive(self, action, operation):
+    def reserve(self, action):
         if not self.lock.acquire(blocking=False):
             raise APIError("LAB_BUSY", "Lab đang xử lý tác vụ khác. Chờ tác vụ kết thúc.", 409)
         with self.meta_lock:
             self.busy, self.last_error = True, None
             self.task = {"action": action, "requested_at": now(), "status": "running"}
-        try:
-            value = operation()
-            with self.meta_lock:
-                self.task.update(status="completed", finished_at=now())
-            return value
-        except Exception as exc:
-            with self.meta_lock:
+
+    def release(self, error=None):
+        with self.meta_lock:
+            if error is not None:
                 self.prepared = None
-                self.last_error = {"code": exc.code if isinstance(exc, APIError) else "INTERNAL_ERROR", "message": str(exc)}
-                self.task.update(status="failed", finished_at=now())
+                self.last_error = {"code": getattr(error,"code","INTERNAL_ERROR"), "message": str(error)}
+            self.task.update(status="failed" if error else "completed", finished_at=now())
+            self.busy = False
+        self.lock.release()
+
+    def exclusive(self, action, operation):
+        self.reserve(action)
+        error = None
+        try:
+            return operation()
+        except Exception as exc:
+            error = exc
             raise
         finally:
-            with self.meta_lock:
-                self.busy = False
-            self.lock.release()
+            self.release(error)
 
     def scenario(self, action):
-        def operation():
-            steps = []
-            # Invalidate readiness before changing relay; failed flush must not look ready.
-            with self.meta_lock:
-                self.prepared = None
-            try:
-                self.runner.set_mode(action == "attack")
-                steps.append({"step": "set_mode", "ok": True})
-                for resolver in ["plain", "secure"]:
-                    self.runner.flush(resolver)
-                    steps.append({"step": "flush_" + resolver, "ok": True})
-                snapshot = self.runner.snapshot()
-                if snapshot["attack"] != (action == "attack"):
-                    raise APIError("MODE_MISMATCH", "Relay khác chế độ vừa yêu cầu.", 409)
-            except APIError as exc:
-                exc.details.update(steps=steps, requested_action=action, ready_for_run=False)
-                raise
-            with self.meta_lock:
-                self.prepared = snapshot
-            return {"source": "live", "action": action, "actual_mode": "attack" if snapshot["attack"] else "normal",
-                    "revision": snapshot["changed_at"], "steps": steps, "ready_for_run": True}
-        return self.exclusive("scenario:" + action, operation)
+        return self.exclusive("scenario:" + action, lambda: self._scenario_operation(action))
+
+    def _scenario_operation(self, action, emit=None):
+        steps = []
+        # Invalidate readiness before changing relay; failed flush must not look ready.
+        with self.meta_lock:
+            self.prepared = None
+        try:
+            self.runner.set_mode(action == "attack")
+            steps.append({"step": "set_mode", "ok": True})
+            if emit: emit("mode.changed", data={"action": action, "attack": action == "attack"})
+            for resolver in ["plain", "secure"]:
+                self.runner.flush(resolver)
+                steps.append({"step": "flush_" + resolver, "ok": True})
+                if emit: emit("cache.flushed", resolver, {"zone": "demo.test"})
+            snapshot = self.runner.snapshot()
+            if snapshot["attack"] != (action == "attack"):
+                raise APIError("MODE_MISMATCH", "Relay khác chế độ vừa yêu cầu.", 409)
+        except APIError as exc:
+            exc.details.update(steps=steps, requested_action=action, ready_for_run=False)
+            raise
+        with self.meta_lock:
+            self.prepared = snapshot
+        return {"source": "live", "action": action, "actual_mode": "attack" if snapshot["attack"] else "normal",
+                "revision": snapshot["changed_at"], "steps": steps, "ready_for_run": True}
 
     def run(self):
-        def operation():
-            before = self.runner.snapshot()
+        return self.exclusive("run", self._run_operation)
+
+    def _run_operation(self, run_id=None, emit=None, job_id=None):
+        before = self.runner.snapshot()
+        with self.meta_lock:
+            prepared = deepcopy(self.prepared)
+        if before != prepared:
+            raise APIError("SCENARIO_NOT_PREPARED", "Chọn kịch bản qua API để đổi mode và xóa cache trước khi đo.", 409)
+        run_id, started = run_id or str(uuid.uuid4()), now()
+        with self.meta_lock:
+            self.task["run_id"] = run_id
+        worker = (self.runner.compare_events(run_id, lambda event: emit(event["kind"], event["branch"], event["data"], event["timestamp"], "worker"))
+                  if emit is not None else self.runner.compare(run_id))
+        self.validate_worker(worker, run_id)
+        after = self.runner.snapshot()
+        consistent = worker["consistent"] and before == worker["scenario_before"] == worker["scenario_after"] == after
+        if not consistent:
             with self.meta_lock:
-                prepared = deepcopy(self.prepared)
-            if before != prepared:
-                raise APIError("SCENARIO_NOT_PREPARED", "Chọn kịch bản qua API để đổi mode và xóa cache trước khi đo.", 409)
-            run_id, started = str(uuid.uuid4()), now()
+                self.prepared = None
+        rows, context, errors = [], "", []
+        proof = None
+        try:
+            if emit: emit("proof.started")
+            proof = {"source": "live", "requested_at": now(), "data": self.runner.proof()}
+        except APIError as exc:
+            errors.append({"source": "proof", "code": exc.code, "message": exc.message})
+        after = self.runner.snapshot()
+        consistent = consistent and before == after
+        if not consistent:
             with self.meta_lock:
-                self.task["run_id"] = run_id
-            worker = self.runner.compare(run_id)
-            self.validate_worker(worker, run_id)
-            after = self.runner.snapshot()
-            consistent = worker["consistent"] and before == worker["scenario_before"] == worker["scenario_after"] == after
-            if not consistent:
-                with self.meta_lock:
-                    self.prepared = None
-            rows, context, errors = [], "", []
-            proof = None
+                self.prepared = None
+        if emit:
+            emit("proof.observed" if proof is not None else "proof.unavailable", "secure", {"available": proof is not None, "consistent": consistent, "rrsig_unchanged": proof["data"].get("rrsig_unchanged") if proof else None})
+        if proof is not None:
+            proof.update(revision=after["changed_at"], consistent_with_run=consistent)
+        for kind, getter in [("http_access", lambda since: self.collect_web_logs(worker, since)), ("dns_context", self.runner.dns_logs)]:
             try:
-                proof = {"source": "live", "requested_at": now(), "data": self.runner.proof()}
+                value = getter(started)
+                if kind == "http_access": rows = value
+                else: context = value
             except APIError as exc:
-                errors.append({"source": "proof", "code": exc.code, "message": exc.message})
-            after = self.runner.snapshot()
-            consistent = consistent and before == after
-            if not consistent:
-                with self.meta_lock:
-                    self.prepared = None
-            if proof is not None:
-                proof.update(revision=after["changed_at"], consistent_with_run=consistent)
-            for kind, getter in [("http_access", lambda since: self.collect_web_logs(worker, since)), ("dns_context", self.runner.dns_logs)]:
-                try:
-                    value = getter(started)
-                    if kind == "http_access": rows = value
-                    else: context = value
-                except APIError as exc:
-                    errors.append({"source": kind, "code": exc.code, "message": exc.message})
-            matching, corroboration = match_logs(worker, rows)
-            if any(error["source"] == "http_access" for error in errors):
-                for evidence in corroboration.values():
-                    evidence.update(no_http_observed=None, observed_request_count=None, http_corroborated=None)
-            result = deepcopy(worker)
-            result.update(source="live", requested_at=started, finished_at=now(), consistent=consistent,
-                          scenario_revision=before["changed_at"], scenario_after=after,
-                          evidence={"http_access": matching, "proof": proof, "collection_errors": errors,
-                                    "dns_context": context, "dns_context_correlation": "time_window_only_not_exact_run_id",
-                                    "log_window_start": started,
-                                    "note": "SERVFAIL không tự chứng minh lỗi chữ ký; log DNS chỉ là ngữ cảnh theo thời gian."})
-            for branch, measured in result["results"].items():
-                measured["scenario_revision"] = before["changed_at"]
-                measured["evidence"] = corroboration[branch]
-                measured["evidence"]["dns_file"] = f"{run_id}/worker.json"
-                measured["http"]["preview_url"] = None
-                body = measured["http"].pop("body", None)
-                measured["http"]["body_available"] = body is not None
-                measured["http"]["body_hash"] = measured["http"].get("body_sha256")
-                if consistent and measured["http"]["status"] == 200 and not measured["http"]["error"] and body is not None:
-                    measured["http"]["preview_url"] = f"/api/runs/{run_id}/preview/{branch}"
-                # Preserve the worker's observation separately from evidence strength.
-                measured["observed_interpretation"] = measured["interpretation"]
-                if (not consistent
-                    or (measured["http"]["status"] == 200 and not corroboration[branch]["http_corroborated"])
-                    or (not measured["http"]["attempted"] and corroboration[branch]["observed_request_count"])):
-                    measured["interpretation"] = "inconclusive"
-            self.store.save(run_id, result, worker, matching, context)
-            return result
-        return self.exclusive("run", operation)
+                errors.append({"source": kind, "code": exc.code, "message": exc.message})
+        matching, corroboration = match_logs(worker, rows)
+        if any(error["source"] == "http_access" for error in errors):
+            for evidence in corroboration.values():
+                evidence.update(no_http_observed=None, observed_request_count=None, http_corroborated=None)
+        result = deepcopy(worker)
+        result.update(source="live", requested_at=started, finished_at=now(), consistent=consistent,
+                      scenario_revision=before["changed_at"], scenario_after=after,
+                      evidence={"http_access": matching, "proof": proof, "collection_errors": errors,
+                                "dns_context": context, "dns_context_correlation": "time_window_only_not_exact_run_id",
+                                "log_window_start": started,
+                                "note": "SERVFAIL không tự chứng minh lỗi chữ ký; log DNS chỉ là ngữ cảnh theo thời gian."})
+        for branch, measured in result["results"].items():
+            measured["scenario_revision"] = before["changed_at"]
+            measured["evidence"] = corroboration[branch]
+            measured["evidence"]["dns_file"] = f"{run_id}/worker.json"
+            measured["http"]["preview_url"] = None
+            body = measured["http"].pop("body", None)
+            measured["http"]["body_available"] = body is not None
+            measured["http"]["body_hash"] = measured["http"].get("body_sha256")
+            if consistent and measured["http"]["status"] == 200 and not measured["http"]["error"] and body is not None:
+                measured["http"]["preview_url"] = f"/api/runs/{run_id}/preview/{branch}"
+            # Preserve the worker's observation separately from evidence strength.
+            measured["observed_interpretation"] = measured["interpretation"]
+            if (not consistent
+                or (measured["http"]["status"] == 200 and not corroboration[branch]["http_corroborated"])
+                or (not measured["http"]["attempted"] and corroboration[branch]["observed_request_count"])):
+                measured["interpretation"] = "inconclusive"
+        if job_id: result["job_id"] = job_id
+        self.store.save(run_id, result, worker, matching, context)
+        if emit: emit("evidence.saved", data={"run_id": run_id, "complete": not errors, "collection_errors": errors})
+        with self.meta_lock:
+            self.last_run_id = run_id
+        return result
 
     def collect_web_logs(self, worker, since):
         # Bounded log-visibility wait, not a fabricated request count.

@@ -132,14 +132,14 @@ body::after {
   background: conic-gradient(from 0deg, #ffd7ee, #d9c6ff, #bfe6ff, #fff0c2, #ffd7ee);
   opacity: .4;
   filter: blur(22px);
-  animation: kw-spin 16s linear infinite;
+  animation: kw-spin 16s linear 1;
 }
 .banner-mascot {
   position: relative;
   z-index: 1;
   width: clamp(126px, 15vw, 210px);
   height: auto;
-  animation: kw-bob 3.6s ease-in-out infinite;
+  animation: kw-bob 3.6s ease-in-out 2;
   filter: drop-shadow(0 18px 20px rgba(150, 100, 190, .3));
 }
 .kawaii-banner .banner-title {
@@ -167,7 +167,7 @@ body::after {
 .chip-word {
   display: inline-block;
   color: var(--ink);
-  animation: kw-wiggle 3.2s ease-in-out infinite;
+  animation: kw-wiggle 3.2s ease-in-out 1;
 }
 .chip-word:nth-child(2) { animation-delay: .16s; }
 .chip-word:nth-child(3) { animation-delay: .32s; }
@@ -187,7 +187,7 @@ body::after {
   width: 22px;
   height: 22px;
   fill: var(--lemon);
-  animation: kw-twinkle 2.4s ease-in-out infinite;
+  animation: kw-twinkle 2.4s ease-in-out 2;
 }
 .banner-sub {
   display: block;
@@ -199,7 +199,7 @@ body::after {
   height: 22px;
   background: var(--lemon);
   clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  animation: kw-twinkle 2.8s ease-in-out infinite;
+  animation: kw-twinkle 2.8s ease-in-out 2;
 }
 .banner-sparkles i:nth-child(1) { top: 8%; right: 6%; background: var(--bubble); }
 .banner-sparkles i:nth-child(2) { top: 42%; right: 16%; width: 14px; height: 14px; animation-delay: .5s; }
@@ -223,7 +223,7 @@ body::after {
   gap: 30px;
   width: max-content;
   padding-left: 24px;
-  animation: kw-slide 22s linear infinite;
+  animation: kw-slide 22s linear 1;
 }
 .ribbon-track svg {
   width: 22px;
@@ -673,4 +673,86 @@ html[data-motion="off"] .kw-burst {
   .scenario span {
     transition: none;
   }
+}
+
+
+/* Integration: preserve measured-state semantics and the presentation viewport. */
+:root{scroll-padding-top:78px}
+.node[data-state="rejected"] rect,.node[data-state="error"] rect{stroke:var(--red);fill:#fff0f4}
+.node[data-state="validated"] rect{stroke:var(--green);fill:#eafaf1}
+.node.tampered rect{stroke:var(--amber);fill:#fff3e5}
+.node.tampered .node-sub{fill:var(--amber)}
+.preview iframe{min-height:160px;height:160px}
+.result-panel:hover{transform:none}
+.preview-warning{position:sticky;top:0;z-index:50;padding:12px 20px;background:#fff1c7;border-bottom:2px solid #b57c00;color:#593d00;text-align:center;font:600 14px/1.5 "Be Vietnam Pro",sans-serif}
+.preview-mode .masthead{top:67px}.preview-mode :target{scroll-margin-top:60px}
+@media(min-width:1100px) and (max-height:900px){
+ :root{scroll-padding-top:68px}.masthead{height:68px;padding:0 32px;border-radius:0 0 20px 20px}
+ .section-shell{max-width:1440px;padding-left:40px;padding-right:40px}
+ .lab-stage{padding-top:12px}.lab-heading{margin-bottom:8px}.lab-heading h2{font-size:32px}
+ .source-badge{font-size:11px;padding:6px 10px;border-width:1px}
+ .controls{padding:8px 12px;gap:12px;border-width:2px;border-radius:20px;flex-wrap:nowrap}
+ .controls legend{font-size:10px;margin-bottom:4px;letter-spacing:0}
+ .scenario span{padding:7px 11px;font-size:13px;border-width:1px}
+ .target{padding-left:14px}.target>span{font-size:10px}.target strong{font-size:14px}
+ #run.primary{padding:11px 15px;font-size:13px;box-shadow:0 4px 0 #d7bce9}
+ #refresh{padding:10px 12px;font-size:12px}
+ .topology{margin-top:8px;padding:8px 12px 4px;border-width:2px;border-radius:20px}
+ .topology svg{height:124px;padding:0}.section-line h2{font-size:12px}.section-line>span{font-size:10px}
+ .validation-steps{gap:8px;padding:0 0 4px}.validation-steps span{padding:3px 6px;border-width:1px;font-size:10px}
+ .validation-steps span+span{padding-left:6px}.route-summary{padding:5px 8px;font-size:11px;border-width:1px;min-height:25px}
+ .result-heading{margin-top:8px;margin-bottom:5px}.result-heading h2{font-size:17px}
+ .notice{padding:5px 10px;font-size:12px;border-width:1px;min-height:26px;margin-bottom:6px;border-radius:12px}
+ .comparison{gap:18px}.result-panel{border-width:2px;border-radius:20px}
+ .result-panel header{padding:7px 12px;border-bottom-width:1px;border-radius:18px 18px 0 0}
+ .result-panel h3{font-size:16px}.result-panel header p{font-size:11px;margin-top:4px}
+ .outcome{padding:4px 8px;font-size:11px;border-width:1px}
+ .panel-body{padding:7px 12px}.metrics{padding-bottom:7px}.metrics dt{font-size:11px}.metrics dd{font-size:15px}
+ .delivery,.timing{padding:0;background:none;border-radius:0}
+ .delivery{font-size:12px;margin:6px 0}.timing{font-size:10px;margin:0 0 6px}
+ .preview{margin-top:6px;border-width:1px;border-radius:12px}.preview-label{padding:5px 8px;font-size:10px;border-width:1px}
+ .preview iframe{height:100px;min-height:100px}
+ .stopped,.stopped.warning-box{margin:0;min-height:124px;padding:10px 12px;border-width:2px;border-radius:14px;gap:6px}
+ .stopped p{font-size:12px;margin:0}.stopped strong{font-size:17px}.stopped button{margin:0;padding:5px 8px;font-size:10px}
+ .evidence{margin-top:14px}
+}
+@media(max-width:700px){
+ :root{scroll-padding-top:66px}.masthead{height:60px;padding:0 14px;gap:8px;border-radius:0 0 18px 18px}
+ .identity{gap:6px;font-size:15px}.brand-symbol{width:26px;height:26px;border-radius:8px;font-size:16px}
+ .masthead nav{gap:3px}.nav-link,.nav-lab{padding:6px;font-size:11px}.nav-lab{gap:5px}
+ .section-shell{padding-left:18px;padding-right:18px}.intro-inner{padding-top:24px}
+ .kawaii-banner{padding:22px 12px 58px;border-width:2px;border-radius:28px;gap:10px}
+ .banner-mascot{width:110px}.kawaii-banner .banner-title{font-size:clamp(32px,9.4vw,48px);line-height:1.2;letter-spacing:0;margin:10px 0}
+ .chip{padding:.14em .22em;border-width:2px;gap:.1em}.banner-kicker{justify-content:center;font-size:13px}
+ .banner-sub{font-size:13px}.intro-bottom{gap:18px}.hero-link{font-size:13px}
+ .lab-stage{padding-top:24px}.lab-heading h2{font-size:30px}.source-badge{font-size:11px;padding:8px 10px}
+ .controls{gap:10px;padding:12px;border-width:2px;border-radius:22px}
+ .scenario span{padding:8px;font-size:12px;border-width:1px}.controls legend{font-size:10px}
+ .target{width:100%;border:0;padding:0}.target strong{font-size:15px}
+ #run.primary{flex:1;padding:12px;font-size:12px;min-width:0}#refresh{padding:12px;font-size:12px}
+ .topology{padding:12px 10px 6px;margin-top:16px;border-width:2px;border-radius:22px}
+ .validation-steps{gap:6px}.validation-steps span{font-size:10px;padding:4px 6px;border-width:1px}
+ .validation-steps span+span{padding-left:6px}.route-summary{font-size:11px;padding:8px;border-width:1px}
+ .notice{font-size:12px;padding:10px 12px;border-width:1px}.comparison{gap:16px}
+ .result-panel{border-width:2px;border-radius:22px}.result-panel header{padding:12px;gap:8px;border-radius:20px 20px 0 0}
+ .result-panel h3{font-size:17px}.result-panel header p{font-size:11px}.outcome{font-size:11px;padding:5px 9px;border-width:1px}
+ .panel-body{padding:12px}.metrics dd{font-size:14px}.metrics dt{font-size:10px}
+ .delivery,.timing{padding:6px 8px;font-size:11px}.preview{border-width:2px;border-radius:14px;margin-top:10px}
+ .preview-label{font-size:11px;padding:8px}.preview iframe{height:150px;min-height:150px}
+ .stopped,.stopped.warning-box{padding:14px;border-width:2px}.stopped p{font-size:12px}
+ .evidence{border-width:2px;border-radius:20px}.evidence>summary{padding:14px 12px;font-size:13px}
+ .evidence-body{padding:8px 12px 16px}.evidence-actions button{padding:9px 10px;font-size:11px}
+ .event-timeline summary{font-size:11px;padding:8px 0}.event-timeline>li{padding:0 8px}
+ .scenario-row{padding:18px}.row-heading{font-size:22px}.row-description{font-size:13px}
+}
+
+/* Keep native radio hit targets above decorative hover transforms. */
+.scenario input{z-index:1}.scenario span{pointer-events:none}
+
+@media(min-width:1100px) and (max-height:900px){
+ :root{scroll-padding-top:64px}.masthead{height:64px}
+ .lab-stage{padding-top:8px}.controls{padding-top:6px;padding-bottom:6px}
+ .topology{padding-top:6px;padding-bottom:2px}.topology svg{height:116px}
+ .result-heading{margin-top:6px}.notice{padding-top:4px;padding-bottom:4px}
+ .result-panel header{padding-top:6px;padding-bottom:6px}
 }

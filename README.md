@@ -9,7 +9,7 @@ và [Git workflow](docs/GITFLOW.md).
 xác thực DNSSEC. Feature dns-core kiểm chứng đủ baseline → attack → recovery.
 Đã có worker hỏi từng resolver rồi truy cập HTTP theo đúng IP nhận được.
 Đã có Flask API điều khiển lab thật, lưu evidence và phục vụ preview đã làm sạch.
-Giao diện được tích hợp riêng trên nhánh dashboard-layout; nhánh API chưa có UI.
+Dashboard đã nối API thật: hai panel DNS/HTTP, preview từ worker và bằng chứng cùng run_id.
 Chế độ kiểm tra trực tiếp authority vẫn giữ cho chẩn đoán.
 
 | Dịch vụ | IP lab | Cổng xem trên host | Site ID |
@@ -138,8 +138,7 @@ python -m venv .venv
 Dùng lại `.venv` nếu đã có. Mặc định app dùng cổng 8080; ví dụ chọn 18766 để
 tránh cổng bị chặn/bận trên máy hiện tại. API tại http://127.0.0.1:18766;
 GET `/api/health` và `/api/state`, POST JSON `/api/scenario`, `/api/run`, `/api/proof`.
-Chọn scenario qua API trước khi run để chuẩn bị mode và flush cache. Đây là
-backend, chưa phải dashboard UI. Chạy một server, không đổi mode bằng CLI đồng thời.
+Chọn scenario qua API trước khi run để chuẩn bị mode và flush cache. Mở URL gốc để xem dashboard; API và UI dùng cùng origin. Chạy một server, không đổi mode bằng CLI đồng thời.
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests/dashboard -p test_api.py -v
@@ -149,6 +148,18 @@ backend, chưa phải dashboard UI. Chạy một server, không đổi mode bằ
 
 Xem [API_STAGE.md](docs/API_STAGE.md) để có ví dụ PowerShell, hợp đồng JSON,
 cơ chế khóa, ý nghĩa bằng chứng và kết quả kiểm thử thực tế.
+
+## Dashboard live
+
+```powershell
+.\.venv\Scripts\python.exe dashboard/app.py --port 18766
+```
+
+Mở http://127.0.0.1:18766/ sau khi lab Docker sẵn sàng. Chọn Bình thường,
+Can thiệp hoặc Khôi phục rồi bấm **Truy vấn và truy cập**. Nút chọn chỉ chọn
+kịch bản; nút chạy mới đổi relay, flush cache và thực hiện phép đo.
+Không chạy dashboard bằng `python -m http.server`: bản live cần Flask/API.
+Không nạp dữ liệu mock khi API lỗi. Xem [hướng dẫn dashboard](docs/DASHBOARD_LAYOUT.md).
 
 ## Evidence và nghiệm thu backend
 
@@ -165,3 +176,5 @@ Thay <run_id> bằng ID thật. -Faults chỉ pause/stop một số dịch vụ 
 local rồi khôi phục; không gọi VPS. Báo cáo Markdown/JSON được ghi trong
 evidence/runs/acceptance-*. Không có -Faults sẽ báo PARTIAL vì bỏ qua ca lỗi live.
 Xem [EVIDENCE_STAGE.md](docs/EVIDENCE_STAGE.md) để đọc phạm vi, giới hạn và kết quả.
+
+Tiến độ worker, Job API và font offline: xem [docs/LIVE_EVENTS.md](docs/LIVE_EVENTS.md).
