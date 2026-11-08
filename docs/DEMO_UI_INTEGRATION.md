@@ -8,6 +8,8 @@ Nút chọn kịch bản giữ vùng bấm native bên trên hiệu ứng hover.
 
 Preview có banner dữ liệu phát lại và source=mock, không được dùng làm bằng chứng đo. Server chặn traversal, không trả integrity verified=true, cursor không phát lại sự kiện trùng và yêu cầu đồng thời trả 409. Run preview liên kết đúng job_id mock để nút xem lại hoạt động.
 
+Panel replay hình máy tính (`static/js/replay.js` + `static/css/replay.css`, `replay.css` nạp sau `kawaii.css`) được chép nguyên sang `dashboard/static/` và `dashboard/templates/index.html`, nằm giữa hai panel resolver và mục "Bằng chứng lần chạy". Bản production bỏ nhãn `relay · BIND: minh họa` vì các bước relay và BIND đến từ worker thật; badge "Minh họa kịch bản" vẫn báo rõ khi đang phát script dựng sẵn chứ không phải số đo. Hook nối là một dòng `CustomEvent("dnssec:event")` sau khi `app.js` thêm mốc vào timeline; scene chỉ vẽ từ dữ liệu đó, không tự suy diễn bước mật mã. SVG giữ tỉ lệ 1210×560, vì thế cao theo cột nội dung; dưới 1000px thì `.replay-stage` cuộn ngang.
+
 Kiểm tra:
 
 ```powershell

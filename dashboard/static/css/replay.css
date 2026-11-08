@@ -1,0 +1,292 @@
+/* Lop replay: may tinh co man hinh, lenh gao tren man hinh va goi tin chay tren duong truyen. */
+
+.wire-replay {
+  margin-top: 26px;
+  padding: 22px 24px 18px;
+  border: 3px solid #ffdcec;
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, .8);
+  box-shadow: var(--puff);
+}
+.replay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.replay-head h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.replay-note {
+  margin-right: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .replay-head { flex-wrap: wrap; row-gap: 10px; }
+  .replay-note { margin-right: 0; }
+  .replay-play { margin-left: auto; }
+}
+.replay-play {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 2.5px solid var(--cobalt);
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(124, 80, 214, .28);
+  transition: transform .12s, box-shadow .12s, background .2s, color .2s;
+}
+.replay-play:hover {
+  color: #fff;
+  background: linear-gradient(120deg, var(--cobalt), #4c28a6);
+}
+.replay-play:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+.replay-play:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+.replay-mode {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 2.5px solid #f6cbde;
+  background: #fff2f7;
+  color: #86506a;
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.replay-mode.is-live {
+  color: #fff;
+  background: linear-gradient(120deg, var(--cobalt), #4c28a6);
+  border-color: transparent;
+}
+.replay-mode.is-demo {
+  color: var(--amber);
+  background: #fff6e2;
+  border-color: #ffe1ab;
+}
+.replay-stage {
+  overflow-x: auto;
+}
+.replay-scene {
+  display: block;
+  width: 100%;
+  min-width: 1000px;
+  height: auto;
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(255, 240, 247, .85), rgba(238, 247, 255, .85));
+}
+
+/* Duong truyen */
+.rp-wires path {
+  stroke: #f4c6da;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke .25s;
+}
+.rp-wires path.is-live {
+  stroke: var(--cobalt);
+}
+.rp-packet {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+/* Node Internet */
+.rp-net-blob {
+  fill: #e9dcfa;
+  stroke: #d2b6f0;
+  stroke-width: 3;
+}
+.rp-net-label {
+  text-anchor: middle;
+  font-family: "Nunito", "Be Vietnam Pro", sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  fill: #3b2350;
+}
+.rp-net-sub {
+  text-anchor: middle;
+  font-family: "Nunito", "Be Vietnam Pro", sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  fill: #6a4d92;
+}
+
+/* Than may: vo hong, man hinh toi */
+.rp-bezel {
+  fill: #fff3f7;
+  stroke: #f0b8cf;
+  stroke-width: 3;
+  transition: fill .25s, stroke .25s;
+}
+.rp-deck,
+.rp-neck,
+.rp-foot {
+  fill: #ffe4ee;
+  stroke: #f0b8cf;
+  stroke-width: 2;
+}
+.rp-keys,
+.rp-track,
+.rp-vent,
+.rp-brand {
+  fill: #f2c4d7;
+  stroke: none;
+}
+.rp-cam {
+  fill: #cf9ab6;
+}
+.rp-led {
+  fill: #7fdcaa;
+}
+.rp-led.alt {
+  fill: #ffc46b;
+}
+.rp-screen {
+  fill: #3a2833;
+  stroke: #2a1a24;
+  stroke-width: 2;
+}
+.rp-label {
+  text-anchor: middle;
+  font-family: "Nunito", "Be Vietnam Pro", sans-serif;
+  font-size: 15.5px;
+  font-weight: 800;
+  fill: var(--ink);
+}
+.rp-sub {
+  text-anchor: middle;
+  font-family: "Nunito", "Be Vietnam Pro", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  fill: var(--muted);
+}
+
+/* Terminal tren man hinh */
+.rp-line {
+  font-family: "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  font-size: 12.5px;
+  letter-spacing: .2px;
+}
+.rp-dim {
+  fill: #6f5b6b;
+}
+.rp-prompt {
+  fill: #9fd8ff;
+}
+.rp-ok {
+  fill: #8ff0c0;
+}
+.rp-bad {
+  fill: #ffa6cd;
+}
+.rp-caret {
+  fill: #e3cfe0;
+  animation: rp-blink 1s steps(2, start) infinite;
+}
+html[data-motion="off"] .rp-caret {
+  animation: none;
+}
+
+/* Trang thai may */
+.rp-node.is-hot .rp-bezel {
+  stroke: var(--cobalt);
+  fill: #f4ecff;
+}
+.rp-node.is-good .rp-bezel {
+  stroke: var(--mint);
+  fill: #eefaf3;
+}
+.rp-node.is-bad .rp-bezel {
+  stroke: var(--bubble);
+  fill: #ffe9f2;
+}
+.rp-node.is-good .rp-screen {
+  stroke: #3f7d63;
+}
+.rp-node.is-bad .rp-screen {
+  stroke: #a03d68;
+}
+.rp-attacker.is-on .rp-bezel {
+  stroke: #d4385e;
+  stroke-width: 4;
+  fill: #ffe4ec;
+}
+.rp-attacker.is-on {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rp-wiggle 1.1s ease-in-out infinite;
+}
+html[data-motion="off"] .rp-attacker.is-on {
+  animation: none;
+}
+
+/* Bong bong ket qua */
+.rp-bubble {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rp-pop .28s ease-out;
+}
+html[data-motion="off"] .rp-bubble {
+  animation: none;
+}
+.rp-bubble ellipse {
+  fill: #fff;
+  stroke-width: 3;
+}
+.rp-bubble text {
+  text-anchor: middle;
+  font-family: "Nunito", sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+}
+.rp-bubble.ok ellipse {
+  stroke: var(--mint);
+}
+.rp-bubble.ok text {
+  fill: var(--green);
+}
+.rp-bubble.no ellipse {
+  stroke: var(--bubble);
+}
+.rp-bubble.no text {
+  fill: var(--red);
+}
+
+.replay-caption {
+  margin: 12px 2px 4px;
+  min-height: 26px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ink);
+}
+@keyframes rp-wiggle {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  35% { transform: translateX(-3px) rotate(-.6deg); }
+  70% { transform: translateX(3px) rotate(.6deg); }
+}
+@keyframes rp-pop {
+  from { opacity: 0; transform: scale(.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes rp-blink {
+  50% { opacity: 0; }
+}

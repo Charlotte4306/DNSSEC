@@ -101,6 +101,8 @@ hai chặng liên tiếp (300ms + 260ms); tọa độ hai đầu dây phải kh�
 `.rp-net-blob` (600,392 · 204×88).
 
 File mới: `static/css/replay.css`, `static/js/replay.js` (nạp sau kawaii, `index.html:12,16`).
+Cùng hai file này được chép sang `dashboard/static/` cho app Flask thật; bản đó không có nhãn
+`relay · BIND: minh họa` vì relay và BIND đo từ worker — xem `docs/DEMO_UI_INTEGRATION.md`.
 
 ## Font
 

@@ -9,9 +9,11 @@
   <link rel="stylesheet" href="/static/css/app.css">
   <link rel="stylesheet" href="/static/fonts/nunito-fonts.css">
   <link rel="stylesheet" href="/static/css/kawaii.css">
+  <link rel="stylesheet" href="/static/css/replay.css">
   <script defer src="/static/js/motion.js"></script>
   <script defer src="/static/js/app.js"></script>
   <script defer src="/static/js/kawaii.js"></script>
+  <script defer src="/static/js/replay.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#lab">Bỏ qua giới thiệu, vào lab</a>
@@ -118,6 +120,35 @@
     <section class="comparison" id="results" aria-label="So sánh hai resolver" aria-busy="false">
       <article class="result-panel" id="plain-panel"><header><div><h3>Không xác thực DNSSEC</h3><p>Unbound plain · 172.30.53.40</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
       <article class="result-panel" id="secure-panel"><header><div><h3>Có xác thực DNSSEC</h3><p>Unbound secure · 172.30.53.30</p></div><span class="outcome neutral">Chưa chạy</span></header><div class="panel-body"></div></article>
+    </section>
+    <section class="wire-replay" aria-labelledby="replay-title">
+      <div class="replay-head"><h3 id="replay-title">Replay truy cập</h3><button id="replay-play" class="replay-play" type="button">Phát lại</button><span class="replay-mode" id="replay-mode" role="status">Chưa có replay</span></div>
+      <div class="replay-stage">
+        <svg viewBox="0 0 1210 560" class="replay-scene" role="img" aria-labelledby="rp-t rp-d">
+          <title id="rp-t">Tám máy tính và một node Internet nối trên đường truyền</title>
+          <desc id="rp-d">Hai máy khách ở cột trái: máy trên hỏi qua resolver không DNSSEC, máy dưới hỏi qua resolver có DNSSEC. HTTP của cả hai đi xuống node Internet rồi mới tới Web thật hoặc Web giả. Cột phải là server DNS và hai website.</desc>
+          <g class="rp-wires" fill="none">
+            <path id="rp-cp" d="M276 110C296 110 304 116 316 116"/>
+            <path id="rp-cs" d="M276 398C296 398 304 406 316 406"/>
+            <path id="rp-pa" d="M560 116C582 116 578 202 596 240"/>
+            <path id="rp-sa" d="M560 406C582 406 578 322 596 296"/>
+            <path id="rp-ab" d="M840 270C868 226 868 140 896 116"/>
+            <path id="rp-hpc" d="M40 106H14V530H716V478"/>
+            <path id="rp-hsc" d="M40 394H26V506H676V478"/>
+            <path id="rp-hng" d="M804 410C852 410 866 320 896 288"/>
+            <path id="rp-hnf" d="M804 434H896"/>
+          </g>
+          <g class="rp-net" aria-hidden="true">
+            <rect class="rp-net-blob" x="600" y="392" width="204" height="88" rx="28"/>
+            <text class="rp-net-label" x="702" y="430">Internet</text>
+            <text class="rp-net-sub" x="702" y="452">nối theo IP vừa nhận</text>
+          </g>
+          <g id="rp-machines"></g>
+          <g id="rp-packets"></g>
+          <g id="rp-bubbles"></g>
+        </svg>
+        <p class="replay-caption" id="replay-caption" role="status" aria-live="polite">Chưa có replay.</p>
+      </div>
     </section>
     <details class="evidence" id="evidence"><summary>Bằng chứng lần chạy <span>DNS, HTTP, access log và chữ ký</span><span class="detail-plus" aria-hidden="true">+</span></summary><div class="evidence-body"><p id="evidence-explanation">Chưa có dữ liệu. Chạy một kịch bản trước.</p><div class="evidence-actions"><button id="restore" disabled>Xem lần chạy gần nhất</button><button id="proof" disabled>Đối chiếu A và RRSIG</button><button id="copy" disabled>Sao chép JSON</button><button id="download" disabled>Tải JSON kết quả</button><span id="copy-status" role="status"></span></div><section class="timeline-section" aria-labelledby="timeline-title"><div class="timeline-heading"><h3 id="timeline-title">Diễn tiến từ worker</h3><span id="timeline-status">Chưa chạy tác vụ</span></div><p>Mốc thời gian được ghi khi thao tác thực sự diễn ra. Không suy diễn các bước mật mã nội bộ của Unbound.</p><ol id="event-timeline" class="event-timeline"></ol></section>
 <section id="recovery-comparison" class="recovery-comparison" hidden><h3>Đối chiếu sau khôi phục</h3><p id="recovery-note"></p><div id="recovery-table" class="table-scroll"></div></section>
