@@ -239,6 +239,7 @@
       summary.textContent = `${String(e.sequence).padStart(2,"0")} · ${stamp} · ${e.branch || "điều phối"} · ${labels[e.kind] || e.kind}`;
       raw.textContent = JSON.stringify(e,null,2); detail.append(summary,raw); item.append(detail); item.dataset.kind=e.kind;
       $("#event-timeline").append(item);
+      window.dispatchEvent(new CustomEvent("dnssec:event", { detail: e }));
       $("#timeline-status").textContent = `${seenEvents.size} mốc · ${e.run_id}`;
       const branch = names.includes(e.branch) ? e.branch : null, data = e.data || {};
       if (branch==='secure' && ['dns.response','dns.error'].includes(e.kind)) $("#validation-received").classList.add('observed');

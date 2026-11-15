@@ -8,12 +8,15 @@ Nút chọn kịch bản giữ vùng bấm native bên trên hiệu ứng hover.
 
 Preview có banner dữ liệu phát lại và source=mock, không được dùng làm bằng chứng đo. Server chặn traversal, không trả integrity verified=true, cursor không phát lại sự kiện trùng và yêu cầu đồng thời trả 409. Run preview liên kết đúng job_id mock để nút xem lại hoạt động.
 
+Panel replay hình máy tính (`static/js/replay.js` + `static/css/replay.css`) nằm giữa hai panel resolver và mục Bằng chứng. Nhãn cố định ghi rõ relay/BIND là minh họa, chưa có telemetry từng hop. Trong chế độ sự kiện thật, DNS chỉ chạy trên đoạn client ↔ resolver; không vẽ gói tin qua relay/BIND hoặc tự tạo log trả lời của BIND và log sửa A tại relay. `mode.changed` chỉ xác nhận cấu hình relay từ API, không chứng minh một gói cụ thể đã bị sửa. `proof.observed` là phép đối chiếu bổ sung, không phải dấu vết từng hop của truy vấn trước đó. Chế độ mô phỏng dựng sẵn vẫn có badge riêng và có thể minh họa toàn tuyến. Relay rung hai nhịp sau khi bật, sau đó chỉ giữ màu trạng thái; toggle và prefers-reduced-motion tắt chuyển động.
+
 Kiểm tra:
 
 ```powershell
 python -m unittest discover -s tests/dashboard -q
 python -m unittest discover -s tests/preview -q
 node tests/check_dashboard_layout.cjs
+node tests/check_relay_replay.cjs
 ```
 
 Kết quả local: 46 test backend và 5 test preview qua. Browser/Docker chạy bình thường → can thiệp → khôi phục: HTTP access log lần lượt 2 → 1 → 2, secure không kết nối HTTP khi SERVFAIL; reload/reconnect, reduced motion, font offline, keyboard/hover và mobile đều qua. Hai panel kết thúc khoảng 756 px ở viewport 1366×768.
