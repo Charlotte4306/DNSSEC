@@ -24,8 +24,8 @@
   const PLAN = {
     clientP: { x: 40, y: 28, w: 236, h: 164, cap: 3, kind: "laptop", label: "Máy khách · không DNSSEC", sub: "trình duyệt + curl" },
     plain: { x: 320, y: 40, w: 236, h: 152, cap: 3, kind: "monitor", label: "Resolver thường", sub: "unbound plain · .40" },
-    bind: { x: 900, y: 40, w: 292, h: 152, cap: 3, kind: "server", label: "Server DNS", sub: "BIND · zone đã ký" },
-    attacker: { x: 600, y: 186, w: 240, h: 168, cap: 3, kind: "laptop", label: "Máy tấn công", sub: "relay sửa đáp án · .20" },
+    bind: { x: 900, y: 40, w: 292, h: 152, cap: 3, kind: "server", label: "Server DNS", sub: "BIND · hop minh họa" },
+    attacker: { x: 600, y: 186, w: 240, h: 168, cap: 3, kind: "laptop", label: "Máy tấn công", sub: "relay .20 · hop minh họa" },
     good: { x: 900, y: 214, w: 292, h: 132, cap: 2, kind: "server", label: "Web thật", sub: "172.30.53.80" },
     clientS: { x: 40, y: 316, w: 236, h: 164, cap: 3, kind: "laptop", label: "Máy khách · có DNSSEC", sub: "trình duyệt + curl" },
     secure: { x: 320, y: 330, w: 236, h: 152, cap: 3, kind: "monitor", label: "Resolver DNSSEC", sub: "unbound secure · .30" },
@@ -207,6 +207,10 @@
     const entry = { wire: lane.out, color, reverse, ms: REAL_MS };
     return reverse ? [...chase, entry] : [entry, ...chase];
   }
+  // Worker observes only the client/resolver exchange, not individual upstream hops.
+  function observedHops(branch, reverse, color) {
+    return [{ wire: LANE[branch].out, color, reverse, ms: REAL_MS }];
+  }
   function netHops(branch, target) {
     const color = target === "fake" ? COLOR.httpBad : COLOR.http;
     return [{ wire: LANE[branch].toNet, color, ms: 300 }, { wire: NET[target], color, ms: 260 }];
@@ -217,22 +221,20 @@
     const lane = LANE[branch], client = lane.client, secure = branch === "secure";
     if (e.kind === "mode.changed") {
       const on = data.attack === true;
-      return { mode: "live", steps: [{ attacker: on, mark: { attacker: on ? "bad" : "good" }, log: [["attacker", on ? "> tamper --enable" : "> tamper --disable", on ? "bad" : "ok"]], text: on ? "Máy tấn công bật sửa bản ghi A." : "Máy tấn công chuyển tiếp nguyên bản." }] };
+      return { mode: "live", steps: [{ attacker: on, mark: { attacker: on ? "bad" : "good" }, log: [["attacker", on ? "mode: attack" : "mode: pass-through", on ? "bad" : "ok"]], text: on ? "API xác nhận bật chế độ sửa phản hồi của relay; chưa đo từng gói tại relay." : "API xác nhận relay ở chế độ chuyển tiếp nguyên bản." }] };
     }
     if (e.kind === "dns.started") {
-      return { mode: "live", steps: [{ mark: { [client]: "hot", [branch]: "hot" }, log: [[client, "> www.demo.test", "prompt"], [branch, "> query A", "prompt"]], hops: hops(branch, false, COLOR.query), text: `Máy khách ${secure ? "có" : "không"} DNSSEC hỏi www.demo.test.` }] };
+      return { mode: "live", steps: [{ mark: { [client]: "hot", [branch]: "hot" }, log: [[client, "> www.demo.test", "prompt"], [branch, "> query A", "prompt"]], hops: observedHops(branch, false, COLOR.query), text: `Máy khách ${secure ? "có" : "không"} DNSSEC hỏi www.demo.test.` }] };
     }
     if (e.kind === "dns.response") {
       const failed = data.rcode === "SERVFAIL", answers = data.answers || [];
       const fake = answers.some(a => a.includes(".90"));
       const color = failed || fake ? COLOR.tampered : COLOR.signed;
       const lines = [[branch, failed ? "< SERVFAIL" : `< A ${fake ? "172.30.53.90" : "172.30.53.80"}`, failed || fake ? "bad" : "ok"]];
-      if (!failed) lines.push(["bind", "< A 172.30.53.80 + RRSIG", "ok"]);
-      if (fake) lines.push(["attacker", "A .80 -> .90 (giữ RRSIG)", "bad"]);
-      const text = failed ? "Chữ ký không khớp → SERVFAIL, resolver không trả IP."
+      const text = failed ? "Resolver trả SERVFAIL; xem log xác thực và proof để xác định nguyên nhân."
         : fake ? "Máy khách không DNSSEC nhận .90."
         : secure ? "RRSIG hợp lệ, cờ AD bật." : "Máy khách nhận 172.30.53.80.";
-      return { mode: "live", steps: [{ attacker: fake || undefined, mark: { [branch]: failed || fake ? "bad" : "good", bind: "good" }, log: lines, hops: hops(branch, true, color), bubble: { name: branch, text: failed ? "✗" : secure ? "AD ✓" : "A", tone: failed ? "no" : "ok" }, text }] };
+      return { mode: "live", steps: [{ mark: { [branch]: failed || fake ? "bad" : "good" }, log: lines, hops: observedHops(branch, true, color), bubble: { name: branch, text: failed ? "✗" : secure ? "AD ✓" : "A", tone: failed ? "no" : "ok" }, text }] };
     }
     if (e.kind === "validation.observed") {
       return { mode: "live", steps: [{ mark: { secure: data.ad ? "good" : "bad" }, log: [["secure", data.ad ? "AD=1 · anchor khớp" : "AD=0 · từ chối", data.ad ? "ok" : "bad"]], bubble: { name: "secure", text: data.ad ? "AD=1" : "AD=0", tone: data.ad ? "ok" : "no" }, text: `Resolver secure báo AD=${data.ad ? 1 : 0}, ${data.rcode || "—"}.` }] };
