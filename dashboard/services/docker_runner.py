@@ -102,3 +102,7 @@ class DockerRunner:
     def compare_events(self, run_id, on_event):
         from dashboard.services.worker_stream import stream_compare
         return stream_compare(run_id, on_event)
+
+    def terminal_command(self, command_id):
+        from dashboard.services.terminal_service import execute_terminal
+        return execute_terminal(command_id)

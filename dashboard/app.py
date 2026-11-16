@@ -17,6 +17,7 @@ from dashboard.services.docker_runner import APIError, DockerRunner
 from dashboard.services.evidence_service import EvidenceStore
 from dashboard.services.scenario_service import LabService
 from dashboard.services.job_service import JobManager
+from dashboard.services.terminal_service import TerminalService, catalog
 
 
 def create_app(runner=None, evidence_root=None):
@@ -114,6 +115,17 @@ def create_app(runner=None, evidence_root=None):
         if len(cursor)>3 or not cursor.isascii() or not cursor.isdigit():
             raise APIError("INVALID_CURSOR", "Cursor không hợp lệ.", 400)
         return jsonify(jobs.get(job_id, int(cursor)))
+
+    @app.get("/api/terminal/commands")
+    def terminal_commands():
+        return jsonify(source="live", commands=catalog())
+
+    @app.post("/api/terminal/run")
+    def terminal_run():
+        data = body({"command_id", "command"})
+        if ("command" in data) == ("command_id" in data):
+            raise APIError("INVALID_INPUT", "Gửi một trường command chứa lệnh đã nhập.", 400)
+        return jsonify(TerminalService(service).run(data.get("command", data.get("command_id"))))
 
     @app.post("/api/proof")
     def proof():

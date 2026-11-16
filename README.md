@@ -3,6 +3,12 @@
 Demo theo [đặc tả](docs/Specification.md), sử dụng [cấu hình chung](docs/PROJECT_CONTRACTS.md)
 và [Git workflow](docs/GITFLOW.md).
 
+## Terminal lab
+
+Overview giữ nguyên trang giới thiệu, kịch bản, kết quả và bằng chứng.
+Màn hình Terminal bổ sung cho phép tự nhập lệnh DNS trong lab.
+Xem [hướng dẫn Terminal](docs/TERMINAL_LAB.md).
+
 ## Phần hiện đã triển khai
 
 Đã có hai website, BIND ký zone, relay sửa phản hồi và hai Unbound có/không

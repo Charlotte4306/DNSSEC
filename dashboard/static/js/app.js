@@ -3,7 +3,7 @@
   const $ = selector => document.querySelector(selector);
   const names = ["plain", "secure"];
   let current = null, proof = null, labState = null, health = null, operationError = null;
-  let busy = false, checking = false, stale = false, uncertain = false, generation = 0;
+  let busy = false, terminalBusy = false, checking = false, stale = false, uncertain = false, generation = 0;
   const selected = () => $("input[name=scenario]:checked").value;
 
   class APIError extends Error {
@@ -38,8 +38,8 @@
     $("#notice").classList.toggle("error", error);
   }
   function updateControls() {
-    const locked = busy || Boolean(labState?.busy);
-    $("#run").disabled = locked || uncertain || health?.ready !== true || !labState?.revision;
+    const locked = busy || terminalBusy || Boolean(labState?.busy);
+    $("#run").disabled = locked || uncertain || health?.ready !== true || !["normal","attack"].includes(labState?.actual_mode);
     $("#run").textContent = busy ? "Đang xử lý…" : labState?.busy ? "Lab đang bận…" : "Truy vấn và truy cập";
     document.querySelectorAll("input[name=scenario]").forEach(el => el.disabled = locked);
     $("#refresh").disabled = checking;
@@ -48,6 +48,7 @@
     $("#copy").disabled = !current;
     $("#download").disabled = !current;
     $("#results").setAttribute("aria-busy", String(busy));
+    window.dispatchEvent(new CustomEvent("dnssec:state",{detail:{locked,ready:health?.ready === true && !uncertain}}));
 
   }
   function resetPanel(name, title, detail) {
@@ -218,6 +219,7 @@
   }
   function resetProgress() {
     liveVersion++; cursor = 0; seenEvents.clear(); stopPulses();
+    window.dispatchEvent(new CustomEvent("dnssec:reset"));
     $("#event-timeline").replaceChildren(); $("#timeline-status").textContent = "Chờ sự kiện";
     $("#recovery-comparison").hidden = true;
     for (const name of names) {
@@ -239,7 +241,7 @@
       summary.textContent = `${String(e.sequence).padStart(2,"0")} · ${stamp} · ${e.branch || "điều phối"} · ${labels[e.kind] || e.kind}`;
       raw.textContent = JSON.stringify(e,null,2); detail.append(summary,raw); item.append(detail); item.dataset.kind=e.kind;
       $("#event-timeline").append(item);
-      window.dispatchEvent(new CustomEvent("dnssec:event", { detail: e }));
+      window.dispatchEvent(new CustomEvent("dnssec:event", { detail: {...e,replayed:replay} }));
       $("#timeline-status").textContent = `${seenEvents.size} mốc · ${e.run_id}`;
       const branch = names.includes(e.branch) ? e.branch : null, data = e.data || {};
       if (branch==='secure' && ['dns.response','dns.error'].includes(e.kind)) $("#validation-received").classList.add('observed');
@@ -398,9 +400,10 @@
     const link = document.createElement("a"); link.href = url; link.download = current.run_id + ".json"; link.click();
     setTimeout(() => URL.revokeObjectURL(url),1000);
   });
+  window.addEventListener("dnssec:terminal-busy",({detail})=>{terminalBusy=detail;updateControls();if(!detail)refresh();});
   names.forEach(name => resetPanel(name,"Chưa có kết quả", "Chọn kịch bản rồi bấm Truy vấn và truy cập."));
   const rememberedJob=storage.get("active-job") || storage.get("last-job");
   if (rememberedJob) start(rememberedJob); else refresh();
   // One poll at a time; no synthetic data or fallback to mock when API is down.
-  setInterval(() => { if (!document.hidden && !busy) refresh(); }, 5000);
+  setInterval(() => { if (!document.hidden && !busy && !terminalBusy) refresh(); }, 5000);
 })();

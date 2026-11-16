@@ -99,10 +99,10 @@
     if (!s) return;
     s.texts.forEach(e => { e.done = true; });
     if (s.texts.length >= s.cap) s.texts.shift();
-    const entry = { text: moving() ? "" : text, tone, done: !moving() };
+    const entry = { text: moving() && !instantView ? "" : text, full:text, tone, done: !moving() || instantView };
     s.texts.push(entry);
     render(name);
-    if (!moving()) return;
+    if (entry.done) return;
     const per = Math.max(6, Math.min(15, 260 / text.length));
     let i = 0;
     const tick = () => {
@@ -139,10 +139,11 @@
     if (!moving()) { setTimeout(() => path.classList.remove("is-live"), 200); return; }
     const dot = el("circle", { class: "rp-packet", r: 9, fill: color, "aria-hidden": "true" });
     packets.append(dot);
-    const length = path.getTotalLength(), began = performance.now();
+    const length = path.getTotalLength(), began = performance.now(), own = gen;
     const done = () => { dot.remove(); path.classList.remove("is-live"); };
     const failsafe = setTimeout(done, ms + 500);
     const step = now => {
+      if (own !== gen || !moving()) { clearTimeout(failsafe); done(); return; }
       const f = Math.min(1, (now - began) / ms), p = path.getPointAtLength(length * (reverse ? 1 - f : f));
       dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y);
       if (f < 1) requestAnimationFrame(step);
@@ -151,11 +152,13 @@
     requestAnimationFrame(step);
   }
   function clearScene() {
-    gen++;
+    gen++; nextFree = 0;
+    queued.forEach(item => clearTimeout(item.timer)); queued = [];
     packets.replaceChildren();
     marks.replaceChildren();
     Object.values(wires).forEach(w => w.classList.remove("is-live"));
     Object.keys(PLAN).forEach(name => {
+      screens[name].texts.forEach(entry => {entry.done = true;});
       screens[name].texts = [];
       render(name);
       const node = nodeOf(name);
@@ -163,7 +166,23 @@
       if (name === "attacker") node.classList.remove("is-on");
     });
   }
-  let gen = 0, lastSeq = -1, nextFree = 0, recorded = [], lastMode = "";
+  let queued = [];
+  let gen = 0, lastSeq = -1, nextFree = 0, recorded = [], lastMode = "", lastRun = null, instantView = false;
+  let destinations = {plain:null, secure:null};
+  function settleMotion() {
+    if (moving()) return;
+    Object.entries(screens).forEach(([name, screen]) => {
+      screen.texts.forEach(entry => {entry.text = entry.full; entry.done = true;}); render(name);
+    });
+    const waiting = queued; queued = []; nextFree = 0;
+    instantView = true;
+    waiting.forEach(item => {clearTimeout(item.timer); if (item.own === gen) run({...item.step,hops:[]});});
+    instantView = false;
+    packets.replaceChildren();
+    Object.values(wires).forEach(wire => wire.classList.remove("is-live"));
+  }
+  new MutationObserver(settleMotion).observe(document.documentElement,{attributes:true,attributeFilter:["data-motion"]});
+  reduced.addEventListener("change",settleMotion);
 
   function run(step) {
     if (step.text) caption.textContent = step.text;
@@ -182,17 +201,25 @@
     badge.textContent = mode === "live" ? "Phát lại sự kiện thật" : "Minh họa kịch bản";
     badge.className = "replay-mode " + (mode === "live" ? "is-live" : "is-demo");
     const own = gen;
-    const base = Math.max(performance.now(), nextFree);
-    let clock = base;
+    const now = performance.now();
+    let clock = Math.max(now, nextFree);
     steps.forEach(step => {
       step.gen = own;
       const hopTime = step.hops ? step.hops.reduce((sum, hop) => sum + hop.ms, 0) : 0;
       clock += step.wait ?? Math.max(260, hopTime + 140);
-      const at = clock - base;
-      if (at <= 0) run(step);
-      else setTimeout(() => { if (own === gen) run(step); }, at);
+      const at = clock - now;
+      if (!moving() || at <= 0) {
+        instantView = !moving(); run({...step,hops:moving()?step.hops:[]}); instantView = false;
+      } else {
+        const item = {own,step};
+        item.timer = setTimeout(() => {
+          queued = queued.filter(other => other !== item);
+          if (own === gen) run(step);
+        }, at);
+        queued.push(item);
+      }
     });
-    nextFree = clock + 60;
+    nextFree = moving() ? clock + 60 : 0;
   }
   function syncButton() {
     playButton.textContent = recorded.length ? "Phát lại lần đo" : "Xem mô phỏng";
@@ -221,53 +248,85 @@
     const lane = LANE[branch], client = lane.client, secure = branch === "secure";
     if (e.kind === "mode.changed") {
       const on = data.attack === true;
-      return { mode: "live", steps: [{ attacker: on, mark: { attacker: on ? "bad" : "good" }, log: [["attacker", on ? "mode: attack" : "mode: pass-through", on ? "bad" : "ok"]], text: on ? "API xác nhận bật chế độ sửa phản hồi của relay; chưa đo từng gói tại relay." : "API xác nhận relay ở chế độ chuyển tiếp nguyên bản." }] };
+      return {steps:[{attacker:on,mark:{attacker:on?"bad":"good"},log:[["attacker",on?"mode: attack":"mode: pass-through",on?"bad":"ok"]],text:on?"API xác nhận bật chế độ sửa phản hồi của relay; chưa đo từng gói tại relay.":"API xác nhận relay ở chế độ chuyển tiếp nguyên bản."}]};
     }
     if (e.kind === "dns.started") {
-      return { mode: "live", steps: [{ mark: { [client]: "hot", [branch]: "hot" }, log: [[client, "> www.demo.test", "prompt"], [branch, "> query A", "prompt"]], hops: observedHops(branch, false, COLOR.query), text: `Máy khách ${secure ? "có" : "không"} DNSSEC hỏi www.demo.test.` }] };
+      return {steps:[{mark:{[client]:"hot",[branch]:"hot"},log:[[client,"> " + (data.name || "truy vấn DNS"),"prompt"]],hops:observedHops(branch,false,COLOR.query),text:`Máy khách hỏi DNS qua resolver ${branch}.`}]};
     }
     if (e.kind === "dns.response") {
-      const failed = data.rcode === "SERVFAIL", answers = data.answers || [];
-      const fake = answers.some(a => a.includes(".90"));
-      const color = failed || fake ? COLOR.tampered : COLOR.signed;
-      const lines = [[branch, failed ? "< SERVFAIL" : `< A ${fake ? "172.30.53.90" : "172.30.53.80"}`, failed || fake ? "bad" : "ok"]];
-      const text = failed ? "Resolver trả SERVFAIL; xem log xác thực và proof để xác định nguyên nhân."
-        : fake ? "Máy khách không DNSSEC nhận .90."
-        : secure ? "RRSIG hợp lệ, cờ AD bật." : "Máy khách nhận 172.30.53.80.";
-      return { mode: "live", steps: [{ mark: { [branch]: failed || fake ? "bad" : "good" }, log: lines, hops: observedHops(branch, true, color), bubble: { name: branch, text: failed ? "✗" : secure ? "AD ✓" : "A", tone: failed ? "no" : "ok" }, text }] };
+      const answers = Array.isArray(data.answers) ? data.answers.filter(a=>typeof a === "string") : [];
+      const rcode = data.rcode || "chưa rõ", authenticated = secure && data.ad === true;
+      const fake = answers.includes("172.30.53.90"), failed = rcode === "SERVFAIL";
+      const tone = failed || fake ? "bad" : authenticated ? "good" : "neutral";
+      const answer = answers.length ? " · " + answers.join(", ") : " · không có A";
+      const ad = data.ad === true ? "1" : data.ad === false ? "0" : "?";
+      return {steps:[{mark:{[branch]:tone},log:[[branch,`< ${rcode}${answer}`,failed||fake?"bad":"ok"]],hops:observedHops(branch,true,failed||fake?COLOR.tampered:COLOR.signed),bubble:{name:branch,text:authenticated?"AD ✓":rcode,tone:failed?"no":"ok"},text:failed?"Resolver trả SERVFAIL; xem log xác thực và proof để xác định nguyên nhân.":`${branch}: ${rcode}${answer}; AD=${ad}.`}]};
+    }
+    if (e.kind === "dns.error") {
+      return {steps:[{mark:{[branch]:"bad",[client]:"bad"},log:[[branch,"! " + (data.error || "lỗi / timeout DNS"),"bad"]],text:"Không nhận được phản hồi DNS sử dụng được; chưa xác định trạng thái xác thực."}]};
     }
     if (e.kind === "validation.observed") {
-      return { mode: "live", steps: [{ mark: { secure: data.ad ? "good" : "bad" }, log: [["secure", data.ad ? "AD=1 · anchor khớp" : "AD=0 · từ chối", data.ad ? "ok" : "bad"]], bubble: { name: "secure", text: data.ad ? "AD=1" : "AD=0", tone: data.ad ? "ok" : "no" }, text: `Resolver secure báo AD=${data.ad ? 1 : 0}, ${data.rcode || "—"}.` }] };
+      const ad = data.ad === true ? "1" : data.ad === false ? "0" : "?";
+      return {steps:[{mark:{secure:data.ad === true?"good":data.rcode === "SERVFAIL"?"bad":"neutral"},log:[["secure",`AD=${ad} · ${data.rcode || "chưa rõ"}`,data.ad === true?"ok":"prompt"]],text:`Resolver secure báo AD=${ad}, ${data.rcode || "chưa rõ"}. AD=0 đơn lẻ chưa chứng minh lỗi chữ ký.`}]};
     }
-    if (e.kind === "http.connected" || e.kind === "http.request_sent") {
-      const fake = data.ip === "172.30.53.90", target = fake ? "fake" : "good";
-      return { mode: "live", steps: [{ mark: { [client]: "hot", [target]: "hot" }, log: [[client, "> curl www.demo.test", "prompt"]], hops: netHops(branch, target), text: fake ? "Máy khách gửi HTTP tới Web giả .90." : "Máy khách gửi HTTP tới Web thật .80." }] };
+    if (e.kind === "http.connecting") {
+      return {steps:[{log:[[client,"> TCP " + (data.ip || "chưa rõ IP"),"prompt"]],text:"Đang thử kết nối TCP; chưa xác nhận đã kết nối website."}]};
+    }
+    if (e.kind === "http.connected") {
+      const target = data.ip === "172.30.53.90" ? "fake" : data.ip === "172.30.53.80" ? "good" : null;
+      destinations[branch] = target;
+      return {steps:[{mark:{[client]:"hot",...(target?{[target]:"hot"}:{})},log:[[client,"< TCP " + (data.ip || "chưa rõ IP"),"ok"]],hops:target?netHops(branch,target):[],text:`TCP đã kết nối ${data.ip || "đích chưa rõ"}; chưa có HTTP response.`}]};
+    }
+    if (e.kind === "http.request_sent") {
+      return {steps:[{log:[[client,"> " + (data.method || "HTTP") + " " + (data.host || ""),"prompt"]],text:"Worker đã gửi HTTP request; đang chờ phản hồi."}]};
     }
     if (e.kind === "http.response") {
-      const fake = /training-fake/.test(JSON.stringify(data)), target = fake ? "fake" : "good";
-      return { mode: "live", steps: [{ mark: { [target]: fake ? "bad" : "good" }, log: [[target, `< 200 · ${fake ? "training-fake" : "legitimate"}`, fake ? "bad" : "ok"], [client, "< 200 OK", fake ? "bad" : "ok"]], bubble: { name: target, text: "200", tone: fake ? "no" : "ok" }, text: fake ? "Trang giả đã tải — DNS bị sửa nhưng web vẫn hiện bình thường." : "Trang thật tải xong, đúng site_id." }] };
+      const target = destinations[branch];
+      const status = Number.isInteger(data.status) ? String(data.status) : "chưa rõ";
+      const expected = data.status === 200 && data.site_id === "legitimate" && target === "good";
+      const message = `< HTTP ${status} · ${data.site_id || "site_id chưa rõ"}`;
+      return {steps:[{mark:target?{[target]:expected?"good":"bad"}:{},log:[[client,message,expected?"ok":"bad"],...(target?[[target,message,expected?"ok":"bad"]]:[])],bubble:target?{name:target,text:status,tone:expected?"ok":"no"}:null,text:`Đã nhận HTTP ${status}; site_id=${data.site_id || "chưa rõ"}. Nội dung và access log được đối chiếu trong kết quả cuối.`}]};
+    }
+    if (e.kind === "http.error") {
+      return {steps:[{mark:{[client]:"bad"},log:[[client,"! " + (data.error || "lỗi HTTP"),"bad"]],text:"Bước HTTP gặp lỗi. Kết quả DNS trước đó vẫn được giữ riêng."}]};
     }
     if (e.kind === "http.skipped") {
-      return { mode: "live", steps: [{ mark: { [client]: "bad" }, log: [[client, "! không có IP hợp lệ", "bad"]], bubble: { name: client, text: "∅", tone: "no" }, text: "DNS bị từ chối → máy khách không gửi HTTP." }] };
+      return {steps:[{mark:{[client]:"neutral"},log:[[client,"HTTP skipped","prompt"],[client,data.reason || "chưa rõ lý do","prompt"]],text:"Worker không gửi HTTP: " + (data.reason || "xem kết quả để xác định nguyên nhân")}]};
     }
-    if (e.kind === "proof.observed") {
-      return { mode: "live", steps: [{ bubble: { name: "bind", text: "A+RRSIG", tone: "ok" }, log: [["bind", "proof: A + RRSIG", "prompt"]], text: "Thu bản ghi A và RRSIG từ authority và relay." }] };
+    if (e.kind === "proof.observed" && data.available === true) {
+      return {steps:[{log:[["bind","proof: đối chiếu bổ sung","prompt"]],text:"Đã thu proof bổ sung từ authority/relay; không phải dấu vết từng hop của truy vấn trước đó."}]};
     }
-    if (e.kind === "job.completed") {
-      return { mode: "live", steps: [{ text: "Xong phép đo — bằng chứng lưu theo run_id." }] };
-    }
+    if (e.kind === "job.failed") return {steps:[{text:"Tác vụ thất bại: " + (data.message || "xem timeline và lỗi API")}]};
+    if (e.kind === "job.completed") return {steps:[{text:"Xong phép đo. Xem kết quả và bằng chứng lưu theo run_id."}]};
     return null;
   }
   function onEvent(e) {
-    if (e.sequence <= lastSeq || lastMode === "demo") { clearScene(); recorded = []; }
-    lastSeq = e.sequence;
+    if (e.run_id !== lastRun) {
+      clearScene(); recorded = []; lastSeq = -1; lastRun = e.run_id;
+      destinations = {plain:null,secure:null};
+    } else if (lastMode === "demo") {clearScene();}
+    if (e.sequence <= lastSeq) return;
+    lastSeq = e.sequence; lastMode = "live";
     recorded.push(e);
-    if (recorded.length > 80) recorded.shift();
+    if (recorded.length > 256) recorded.shift();
     const view = fromEvent(e);
-    if (view) play(view.steps, view.mode);
+    if (view) {
+      if (e.replayed) {
+        instantView = true;
+        view.steps.forEach(step => run({...step,hops:[],gen}));
+        instantView = false;
+        badge.textContent = "Sự kiện lần đo đã lưu"; badge.className = "replay-mode is-live";
+      } else play(view.steps,"live");
+    }
     syncButton();
   }
   window.addEventListener("dnssec:event", event => onEvent(event.detail));
+  window.addEventListener("dnssec:reset", () => {
+    clearScene(); recorded = []; lastSeq = -1; lastRun = null; lastMode = "";
+    destinations = {plain:null,secure:null}; syncButton();
+    badge.textContent = "Chờ sự kiện lần đo mới";
+    caption.textContent = "Chưa có kết quả mới.";
+  });
 
   const ask = branch => [{
     mark: { [LANE[branch].client]: "hot", [branch]: "hot" },
@@ -332,8 +391,9 @@
   });
   playButton.addEventListener("click", () => {
     if (!recorded.length) return showDemo(chosenScenario());
+    destinations = {plain:null,secure:null};
     const steps = recorded.map(fromEvent).filter(Boolean).flatMap(view => view.steps);
-    clearScene(); lastSeq = -1; nextFree = 0;
+    clearScene(); nextFree = 0;
     play(steps, "live");
     caption.textContent = `Phát lại ${recorded.length} mốc của lần đo ${recorded[0].run_id || ""}.`;
   });
